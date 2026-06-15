@@ -1,0 +1,73 @@
+version: "3.8"
+
+services:
+  #MySQL Database
+  mysql:
+    image: mariadb:latest
+    container_name: d2c-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-d2c_fashion}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"  
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      #test: ["CMD","mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 10s
+      timeout: 10s 
+      retries: 10
+      start_period: 120s
+    networks:
+      - app-network
+    command:
+      - --max_connections=1000
+      - --wait_timeout=600
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+  
+  # FastAPI Backend
+  backend:
+    image: fastapi-backend:latest
+    container_name: d2c-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: mysql+aiomysql://${MYSQL_USER}:${MYSQL_PASSWORD}@mysql:3306/d2c_fashion?charset=utf8mb4
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - app-network
+  
+  # Next.js Frontend
+  frontend:
+    image: nextjs-frontend:latest
+    container_name: d2c-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - app-network
+
+volumes:
+  mysql_data:
+
+networks:
+  app-network:  
+    driver: bridge
+  
+   

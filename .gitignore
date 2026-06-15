@@ -6,3 +6,5 @@ app/fashion-d2c-app/backend/__pycache__
 app/fashion-d2c-app/backend/routers/__pycache__
 app/fashion-d2c-app/backend/venv
 app/fashion-d2c-app/backend/.env
+
+app/fashion-d2c-app/.env
