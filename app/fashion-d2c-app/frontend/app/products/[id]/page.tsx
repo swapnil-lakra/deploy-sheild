@@ -1,4 +1,10 @@
-export default async function SingleProduct({ params }) {
+interface SingleProductProps {
+  params: Promise<{
+    id: string;
+  }>;
+}
+
+export default async function SingleProduct({ params } : SingleProductProps) {
   const { id } = await params;
   const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/products/${id}`);
   const product = await res.json();

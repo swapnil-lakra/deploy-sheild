@@ -1,4 +1,5 @@
 import { getApiUrl } from "../../lib/config"
+import { Product } from "../types/product";
 // app/products/page.js (Server Component - No "use client")
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,7 @@ export default async function ProductsPage() {
     <div className="container mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6">Our Collection</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {products.map((product) => (
+        {products.map((product:Product) => (
           <div key={product.id} className="border rounded-lg p-4 shadow">
             <img src={product.image_url} alt={product.name} className="w-full h-48 object-cover rounded" />
             <h2 className="text-xl font-semibold mt-2">{product.name}</h2>
