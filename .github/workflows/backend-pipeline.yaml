@@ -55,6 +55,8 @@ jobs:
 
     steps:
       - name: Deploy to Remote EC2 Server
+        env: 
+          MYSQL_DOTENV: ${{ secrets.MYSQL_DOTENV }} 
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_HOSTS }}
@@ -62,8 +64,13 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             echo "🚀 Starting Deployment on EC2..."
-            cd /home/ubuntu/DeploySheild/app/fashion-d2c-app/
-
+            git clone https://github.com/swapnil-lakra/deploy-sheild.git
+            cd /home/ubuntu/deploy-sheild/app/fashion-d2c-app/
+            
+            cat << 'EOF' | sudo tee /home/ubuntu/deploy-sheild/app/fashion-d2c-app/.env
+            ${{ env.MYSQL_DOTENV }}
+            EOF
+            
             # pull latest images
             docker pull $GHCR_REGISTRY/${{ env.BACKEND_IMAGE }}:latest
 
@@ -71,7 +78,7 @@ jobs:
             docker compose -f docker-compose.yaml down || true
             docker compose -f docker-compose.yaml up -d --force-recreate
 
-            echo "✅ Frontend Deployment Completed Successfully!"
+            echo "✅ Backend Deployment Completed Successfully!"
 
 
 
