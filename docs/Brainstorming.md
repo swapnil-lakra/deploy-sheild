@@ -167,5 +167,65 @@ Date - 17/06/2026
 
 79. Mai GitHub Actions se poora CI/CD Workflow bana liya hai ".github/workflows/d2c-fashion-cd-cd.yaml" me
 
+80. Ab GitHub Actions me secrets ka kaise use karna hai ye jaan na padega.
+
+81. Maine Github me secrets ko add kar liya hua hai apne repository ke liye
+
+82. Maine Abhi GitHub Actions me CI/CD Workflow bhi create kar liya hua hai aur secrets bhi add kar liya hun ab mai next step kya le sakta hun
+
+Date - 18/06/2026
+
+83. Mai ek mistake kar diya hu wo mujhe abhi pata chal raha hai, mai frontend + backend ke liye ek hi ci/cd workflow create kiya, dono ke liye seperate ci/cd workflow hona chahiye 
+
+84. Abhi mai dono ke liye seperate create kar raha hun
+
+85. Mai Frontend aur backend dono ke liye successfully seperate ci/cd workflow ke liye folder aur yaml file create kar liya hai aur usko Implementation.md me point no. 6 me document kiya hai
+
+86. Mai phele socha tha ki cloud native tool aws CodeDeploy se blue-green deployment banaounga but unfortunately mai CodeDeploy ko use nahi kar sakta kyuki mera aws account fully registered nahi hai aisa show kar raha hai aur jab tak fully registerd nahi hoga tab rak mai CodeDeploy use nahi kar sakta 
+
+87. Ishiliye mujhe alternate path find karna padega blue-green deployment ko implement karne ke liye
+
+Date - 19/06/2026
+
+88. Phele mujhe ye pata lagana padega ki mai kaise blue-green deployment aur saath hi automatic rollback agar /health endpoint fail ho toh 
+
+89. Mai bina CodeDeploy ke blue-green deployment achieve kar sakta hun wo bhi bash scripting ka use karke
+
+90. Mujhe pata chala hai ki mujhe Nginx jo ek load balancer hai uska use karna padega.
+
+91. Ab mujhe ye pata lagana padega ki Nginx ka kya role hai blue-green deployment achieve karne me.
+
+92. Nginx ka kya role hai blue-green deployment me isko maine Research.md me point no. 15 me document kiya hai
+
+93. Mujhe research karke pata chala hai ki mere application ke frontend aur backend dono me /health checkpoint hona chahiye 
+
+94. But mere application me nahi hai toh mujhe sabse phele /health endpoint ko implement kar chahiye 
+
+95. Jab me /health endpoint ko implement karunga toh meri ci/cd pipeline ki bhi testing ho jaayegi , toh mai dekh paounga ki ye ci/cd pipeline jo mai implement kiya hu wo sahi se kaam kar bhi raha hai ya fir nahi 
+
+96. Maine frontend aur backend me /health endpoint ko implement kar diya hai aur usko github me push kar kar diya hai
+
+97. Ab CI/CD pipeline latest git repositry ke hissab se ec2 me deploy karega 
+
+98. CI/CD pipeline break ho gayi kyuki frontend aur backend ka docker image build nahi ho paya aur mai isko 4-RCA-&-Incident-Journal.md me point no. 8 me document kiya hai
+
+99. Ab mujhe ye jaan na padega ki same name se 2 baar docker image ko GHCR(GitHub Container Registry) me push kare toh kya hoga ?
+
+100. Mujhe samajh aa gaya hai ki jab ham docker image ko same name se 1 baar se jyada GHCR(GitHub Container Registry) me push karenge toh kya hoga aur mai usko Research.md me point no. 16. me document kiya hai
+
+101. mujhe ab ye pata karna padega ki jab mai docker image build karke usko GHCR(GitHub Container Registry) me push karunga toh kya wo by default public image registry me push hogi ya nahi kyuki GHCR(GitHub Container Registry) ki private image registry me only 500mb tak image ko store karne ke liye free hai?
+
+102. mujhe pata chal gaya jab mai ek baar private images ki visibiliy private kar deta hun toh wo next time push hogi toh wo public image registry me push hogi
+
+103. phele mera jo frontend aur backend docker image build fail hua tha ab mai uske jobs ko re-run karunga
+
+104. uss phele mujhe github context ke baare me jaan na padega khas kar ki ye dono - github.repository,github.event.respository.name 
+
+105. mujhe  github context (github.repository,github.event.respository.name) ke baare me samajh aa gaya hai aur mai isko Research.md me point no. 17 me document kiya hun.
+
+106. 
+
+
+
 
 
