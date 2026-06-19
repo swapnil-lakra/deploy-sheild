@@ -8,8 +8,8 @@ on:
 
 # Environment variables (Global, accessible to all jobs)
 env:
-  GHCR_REGISTRY: ghcr.io/${{ github.repository_owner }}
-  FRONTEND_IMAGE: ${{ github.event.repository.name }}/nextjs-frontend
+  GHCR_REGISTRY: ghcr.io/${{ github.repository }}
+  FRONTEND_IMAGE: nextjs-frontend
 
 jobs:
 

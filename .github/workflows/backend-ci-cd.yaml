@@ -8,8 +8,8 @@ on:
 
 # Environment variables (Global, accessible to all jobs)
 env:
-  GHCR_REGISTRY: ghcr.io/${{ github.repository_owner }}
-  BACKEND_IMAGE: ${{ github.event.repository.name }}/fastapi-backend
+  GHCR_REGISTRY: ghcr.io/${{ github.repository }}
+  BACKEND_IMAGE: fastapi-backend
 
 jobs:
   # ================
