@@ -33,5 +33,5 @@ async def root():
 def health_check():
     return {
         "status" : "healthy",
-        "timestamp" : datetime.now().isoformat()
+        "timestamp" : datetime.now().isoformat() 
     }
