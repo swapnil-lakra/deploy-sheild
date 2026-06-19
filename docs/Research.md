@@ -1387,7 +1387,7 @@ With a single command, your entire application stack is up and running.
 
 Date - 15/06/2026
 
-# How to push docker images to GHCR ?
+# 13. How to push docker images to GHCR ?
 
 To store and distribute Docker images using GitHub, you use the **GitHub Container Registry (GHCR)**, which is GitHub's official container registry.
 
@@ -1555,3 +1555,509 @@ This eliminates the need to manually run `docker build` and `docker push` comman
 Whenever you push code to GitHub, the images are automatically built and uploaded to GHCR.
 
 This is the recommended approach for CI/CD pipelines.
+
+Date - 17/06/2026
+
+# 14. Where do GitHub Action Builds ? In GitHub's Virtual Machine or it need my remote server ?
+
+## ✅ Excellent Question!
+
+This is a very common point of confusion when people set up CI/CD pipelines for the first time.
+
+The simple answer is:
+
+> When your GitHub Actions workflow runs and builds a Docker image, the build happens on **GitHub's own machine**, not on your remote EC2 server.
+
+In the industry, this machine is called a **GitHub-Hosted Runner**.
+
+Let's understand exactly how it works and why it is a huge advantage over 1 GB EC2 server.
+
+---
+
+## 🛠️ How Does the Process Work?
+
+When you create a GitHub Actions workflow (`.yaml` file), you typically specify:
+
+```yaml
+runs-on: ubuntu-latest
+```
+
+This tells GitHub:
+
+> "Allocate a fresh Ubuntu virtual machine from GitHub's cloud infrastructure and run my workflow there."
+
+GitHub's hosted runners are backed by cloud infrastructure (primarily on Microsoft Azure).
+
+---
+
+## Complete Pipeline Flow
+
+### 1. Trigger
+
+You push code to GitHub:
+
+```bash
+git push origin main
+```
+
+---
+
+### 2. Environment Setup
+
+GitHub automatically starts a fresh Ubuntu virtual machine (GitHub Runner).
+
+---
+
+### 3. Build
+
+Inside that GitHub-hosted machine:
+
+* Your repository is cloned
+* Docker is available
+* Docker images are built
+
+For example:
+
+```bash
+docker build -t frontend .
+docker build -t backend .
+```
+
+---
+
+### 4. Push
+
+After the images are built, the GitHub Runner pushes them to:
+
+* GitHub Container Registry (GHCR)
+* Amazon ECR
+* Docker Hub
+
+Example:
+
+```bash
+docker push ghcr.io/yourusername/frontend:latest
+docker push ghcr.io/yourusername/backend:latest
+```
+
+---
+
+### 5. Deployment (SSH)
+
+In the final step, the GitHub Runner connects to your EC2 server via SSH and says:
+
+> "The new images are available in the registry. Pull them and start them."
+
+Example:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+---
+
+## 🚀 Why This Is a Huge Advantage over 1 GB EC2 Server
+
+Imagine building Docker images directly on a small EC2 instance.
+
+During image builds:
+
+* Node.js dependencies are installed
+* Next.js is compiled
+* Python packages are installed
+* Application assets are generated
+
+All of these consume significant:
+
+* CPU
+* RAM
+* Disk I/O
+
+On a 1 GB RAM server:
+
+```text
+CPU = 100%
+RAM = 100%
+```
+
+You can easily encounter:
+
+```text
+Out Of Memory (OOM)
+```
+
+which may:
+
+* Freeze the server
+* Crash your application
+* Cause downtime
+
+---
+
+# The Benefit of GitHub Actions
+
+All heavy work happens on GitHub's infrastructure.
+
+```text
+GitHub Runner
+    │
+    ├── Build Images
+    ├── Run Tests
+    ├── Push Images
+    │
+    ▼
+Registry
+    │
+    ▼
+EC2
+    ├── Pull Image
+    └── Run Container
+```
+
+Your EC2 instance only:
+
+1. Downloads the image
+2. Starts the container
+
+This requires far fewer resources than building the image.
+
+---
+
+# GitHub-Hosted vs Self-Hosted Runners
+
+GitHub provides two runner options.
+
+| Type                 | Machine Used                     | Cost & Management                                                |
+| -------------------- | -------------------------------- | ---------------------------------------------------------------- |
+| GitHub-Hosted Runner | GitHub's cloud VM                | Recommended. Free for public repositories and managed by GitHub. |
+| Self-Hosted Runner   | Your own server (EC2, VPS, etc.) | You manage everything yourself.                                  |
+
+---
+
+## GitHub-Hosted Runner (Recommended)
+
+```yaml
+runs-on: ubuntu-latest
+```
+
+GitHub provides a fresh VM for every workflow run.
+
+Benefits:
+
+* No maintenance
+* No infrastructure management
+* Faster builds
+* No load on your EC2
+
+---
+
+## Self-Hosted Runner
+
+```yaml
+runs-on: self-hosted
+```
+
+In this case:
+
+```text
+GitHub Actions
+        │
+        ▼
+Your EC2 Server
+```
+
+All builds run on your own machine.
+
+For a small 1 GB EC2 instance, this is generally not recommended because image builds can consume most of the available resources.
+
+---
+
+# Final Summary
+
+```text
+Developer
+    │
+    ▼
+Git Push
+    │
+    ▼
+GitHub Actions
+(GitHub Hosted Runner)
+    │
+    ├── Build Docker Images
+    ├── Run Tests
+    ├── Push Images to Registry
+    │
+    ▼
+GHCR / ECR
+    │
+    ▼
+EC2 Server
+    │
+    ├── docker pull
+    └── docker compose up -d
+```
+
+So Docker images are built on **GitHub's free high-performance machines**, while EC2 server remains focused on running the application. This is one of the biggest advantages of using GitHub Actions for CI/CD, especially when working with small servers.
+
+Date - 19/06/2026
+
+# 15. What is the role of Nginx in blue-green deployment ?
+
+**Nginx plays a crucial role in Blue-Green Deployment**, especially when you are setting up a pure EC2 + Docker environment **without AWS CodeDeploy or an Application Load Balancer (ALB)**.
+
+### The Main Role of Nginx in Blue-Green Deployment
+
+Nginx acts as a **Traffic Router / Load Balancer**. It decides whether the users' traffic should be routed to the **Blue environment** or the **Green environment**.
+
+---
+
+### The Practical Role of Nginx in Blue-Green Deployment
+
+| Step | Nginx's Function |
+| --- | --- |
+| 1 | Allows both environments (Blue & Green) to run simultaneously |
+| 2 | Routes live user traffic to **only one environment** at a time |
+| 3 | Performs an **instant traffic switch** once the new version is ready |
+| 4 | Triggers a **Rollback** (routing traffic back to the old environment) if health checks fail |
+| 5 | Serves the entire application from a single domain (`yourapp.com`) |
+
+---
+
+### How Does It Work? (Simple Example)
+
+You will have two sets of containers running simultaneously:
+
+* **Blue** → `frontend-blue:3000` and `backend-blue:8000`
+* **Green** → `frontend-green:3000` and `backend-green:8000`
+
+**Nginx Configuration Example:**
+
+```nginx
+upstream frontend {
+    server frontend-blue:3000;     # Blue is currently live
+    # server frontend-green:3000;  # Kept commented out for now
+}
+
+upstream backend {
+    server backend-blue:8000;
+}
+
+server {
+    listen 80;
+    server_name yourapp.com;
+
+    location / {
+        proxy_pass http://frontend;
+    }
+
+    location /api/ {
+        proxy_pass http://backend;
+    }
+}
+
+```
+
+**What happens during deployment:**
+
+1. The Green environment gets ready with the new code.
+2. The health checks pass successfully.
+3. In the Nginx config, `frontend-blue` is commented out, and `frontend-green` is activated.
+4. Running the `sudo nginx -s reload` command switches the traffic to Green **instantly** (achieving zero downtime).
+
+If the health check fails, you simply revert the Nginx config back to Blue and reload—initiating an instant **Rollback**.
+
+---
+
+### Advantages of Nginx in Blue-Green Deployment
+
+* **Zero Downtime Switching** → Users don't experience any interruption.
+* **Easy Rollback** → Requires just a quick Nginx config change and a reload.
+* **Single Entry Point** → Everything is managed under a single domain and port (80/443).
+* **Load Balancing** → Ready to scale with multiple instances in the future.
+* **SSL Termination** → HTTPS certificates are managed in just one central place.
+* **Security** → Keeps backend container ports hidden from the public internet.
+
+---
+
+### Summary (In Simple Words)
+
+> **In a Blue-Green deployment, Nginx acts like a "Traffic Cop."**
+> It directs whether users should see the old version (Blue) or the new version (Green). Whenever you are ready to switch, it redirects the traffic instantly.
+
+---
+---
+
+# 16. What will happen when we push same docker image to GHCR(Github Container Registry) with same name more than 1 times ?
+
+When you push a Docker image to **GHCR (GitHub Container Registry) twice with the exact same name and tag**, this is what happens:
+
+### **What Happens?**
+
+1. **The new image overwrites the old image**
+* If the same `repository:tag` (e.g., `d2c-fashion-frontend:latest`) already exists in GHCR, the **new push replaces the old image reference**.
+* The old image layer data isn't immediately deleted, but the tag itself is **overwritten**.
+
+
+2. **The Image ID changes**
+* Every time a new image is built, it gets a unique **Image ID (Digest)**.
+* The `:latest` tag will now point exclusively to this new image.
+
+
+3. **The previous image becomes "untagged"**
+* If you only used the `:latest` tag, the old image loses its tag and becomes **untagged (dangling)**, making it harder to pull and eventually prone to garbage collection.
+* However, if you also tagged it with a **commit SHA**, that specific version remains perfectly safe and accessible.
+
+
+
+---
+
+### **Best Practice (Recommended Approach)**
+
+**Don't rely solely on the `:latest` tag.** A much better production approach is to tag your images twice during the build phase:
+
+```bash
+# Build the image with the latest tag
+docker build -t ghcr.io/yourusername/d2c-fashion-frontend:latest .
+
+# Add a secondary tag using the specific git commit SHA
+docker tag ghcr.io/yourusername/d2c-fashion-frontend:latest \
+           ghcr.io/yourusername/d2c-fashion-frontend:${{ github.sha }}
+
+# Push both tags to GHCR
+docker push ghcr.io/yourusername/d2c-fashion-frontend:latest
+docker push ghcr.io/yourusername/d2c-fashion-frontend:${{ github.sha }}
+
+```
+
+**Why do this?**
+
+* `:latest` → Always tracks your most recent stable build.
+* `:commit-sha` → Keeps a permanent record of that specific deployment version (incredibly useful if you ever need to perform a quick rollback).
+
+---
+
+### **Summary**
+
+| Scenario | What Happens |
+| --- | --- |
+| Pushing twice with the same tag (`:latest`) | The old image pointer is overwritten by the new one. |
+| Using a unique tag (like Git Commit SHA) | Both images coexist independently in the registry. |
+| Relying *only* on the `:latest` tag | You lose track of previous versions, making rollbacks difficult. |
+
+---
+
+### **Recommended Workflow Implementation for Your Project**
+
+You can implement this strategy directly into your GitHub Actions workflow file like this:
+
+```yaml
+- name: Build & Push Frontend
+  run: |
+    cd frontend
+    docker build -t $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:latest .
+    docker tag $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:latest $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+    docker push $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:latest
+    docker push $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+
+```
+
+---
+---
+
+# 17. What is GitHub Context especially these both - github.repository, github.event.respository.name , and what are the difference between them ?
+
+The **`github`** context in GitHub Actions is incredibly important. It provides dynamic, real-time information about the current workflow execution.
+
+### 1. **`github.repository`**
+
+**Value:** `owner/repository`
+
+**Example:** `johndoe/d2c-fashion-application`
+
+**Meaning:** Returns the **full name** of the repository (owner/organization name + repository name).
+
+#### When and Where to Use It?
+
+* Creating Docker image names or tags
+* Pushing images to GHCR (GitHub Container Registry)
+* Referencing the repository in paths, URLs, or log setups
+
+**Example:**
+
+```yaml
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}/frontend
+
+run: |
+  docker build -t ${{ env.IMAGE_NAME }}:latest .
+
+```
+
+This is the most common and highly recommended context variable.
+
+---
+
+### 2. **`github.event.repository.name`**
+
+**Value:** Only the **repository name** **Example:** `d2c-fashion-application`
+
+**Meaning:** Extracts just the last part of the repository path (excluding the owner).
+
+#### When and Where to Use It?
+
+* When you only need the repository name (without the owner prefix)
+* Dynamic naming conventions for local resources
+* Handling specific event payloads
+
+**Example:**
+
+```yaml
+- name: Print Repo Name
+  run: echo "Repository Name is ${{ github.event.repository.name }}"
+
+```
+
+---
+
+### **Key Differences Between the Two**
+
+| Feature | `github.repository` | `github.event.repository.name` |
+| --- | --- | --- |
+| **Value** | `owner/repo-name` | Only `repo-name` |
+| **Format** | Complete path | Short name |
+| **Most Common Use** | Docker images, GHCR tagging, remote paths | Specific naming, logging, and notifications |
+| **Availability** | Always available in any workflow | Event-dependent (triggered via `push`, `pull_request`, etc.) |
+| **Recommendation** | **Best for most general use cases** | Used selectively when required |
+
+---
+
+### **Best Practices (For Your Project)**
+
+```yaml
+name: D2C Fashion Fullstack CI/CD
+
+env:
+  # Best approach - Widely preferred
+  REPO_NAME: ${{ github.repository }}           # johndoe/d2c-fashion-application
+  SHORT_REPO_NAME: ${{ github.event.repository.name }}  # d2c-fashion-application
+
+  FRONTEND_IMAGE: ${{ github.repository_owner }}/d2c-fashion-frontend
+  BACKEND_IMAGE:  ${{ github.repository_owner }}/d2c-fashion-backend
+
+```
+
+**Other Helpful GitHub Context Variables:**
+
+* `${{ github.repository_owner }}` → Only the owner or organization name (`johndoe`)
+* `${{ github.sha }}` → The exact commit SHA triggering the workflow (ideal for precise versioning)
+* `${{ github.ref_name }}` → The target branch or tag name (`main`)
+* `${{ github.event_name }}` → The event type that fired the webhook (`push`, `pull_request`, etc.)
+
+---
+
+### **Summary**
+
+* **Use `github.repository**` as your standard choice for resolving full repository paths.
+* **Use `github.event.repository.name**` only when you need an isolated repository name without its owner prefix.
