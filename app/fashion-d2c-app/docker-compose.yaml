@@ -50,7 +50,7 @@ services:
   
   #Next.js Frontend
   frontend:
-    image: ghcr.io/swapnil-lakra/deploysheild/nextjs-frontend:latest
+    image: ghcr.io/swapnil-lakra/deploy-sheild/nextjs-frontend:latest
     container_name: d2c-frontend
     restart: unless-stopped
     environment:
