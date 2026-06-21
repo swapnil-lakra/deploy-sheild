@@ -1,48 +1,27 @@
-# Dependencies
-node_modules
+# Bun / Node
+node_modules/
+bun.lockb
+package-lock.json
 
-# Build outputs
-.next
-out
-build
-dist
+# Build output
+dist/
+build/
 
-# Development files
-.git
-.gitignore
-README.md
+# Environment variables (don't copy to container)
 .env
-.env*.local
-.env.development
-.env.test
-AGENTS.md
-CLAUDE.md
+.env.local
+.env.production
 
-# Logs
-*.log
-npm-debug.log*
-bun-debug.log*
+# Git
+.git/
+.gitignore
 
-# OS files
+# IDE
+.vscode/
+.idea/
+
+# Misc
 .DS_Store
-Thumbs.db
-
-# Editor files
-.vscode
-.idea
-*.swp
-*.swo
-
-# Temporary files
+*.log
 *.tmp
-.cache
-
-# TypeScript config (not needed in image)
-tsconfig.json
-next-env.d.ts
-eslint.config.mjs
-postcss.config.mjs
-
-# Docker related (don't copy itself)
-Dockerfile
-.dockerignore
+*.swp

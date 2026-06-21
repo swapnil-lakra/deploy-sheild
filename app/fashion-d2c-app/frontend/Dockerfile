@@ -1,38 +1,53 @@
-# Stage 1: Builder
+# ---- Build Stage ----
 FROM oven/bun:latest AS builder
 
 WORKDIR /app
 
-COPY package.json bun.lock ./
-RUN bun install --freeze-lockfile
+# Accept build-time API URL and expose it to the build
+ARG VITE_API_URL="/api"
+ENV VITE_API_URL=${VITE_API_URL}
 
+# Copy package files first (better caching)
+COPY package.json bun.lockb* ./
+
+# Install dependencies using Bun (faster than npm)
+RUN bun install --frozen-lockfile
+
+# Copy the rest of the source code
 COPY . .
 
-# Build karo - build time pe environment variable set nahin kar rahe
+# Build the Vite app (produces 'dist' folder)
 RUN bun run build
 
-# Stage 2: Runtime
-FROM oven/bun:latest AS runner
+# ---- Runtime Stage ----
+FROM nginxinc/nginx-unprivileged:alpine-slim
 
-WORKDIR /app
+# Copy built static files from builder to nginx html folder
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# .next/standalone aur public files ko copy karo
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./next/static
-COPY --from=builder /app/public ./public
+# Create nginx config to serve SPA and proxy /api to backend service inside docker network
+RUN echo $'server { \n\
+    listen 80; \n\
+    root /usr/share/nginx/html; \n\
+    index index.html; \n\
+\n\
+    # Proxy API calls to backend container (docker-compose service name) \n\
+    location /api/ { \n\
+        proxy_pass http://backend-blue:8000/; \n\
+        proxy_set_header Host $host; \n\
+        proxy_set_header X-Real-IP $remote_addr; \n\
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \n\
+        proxy_set_header X-Forwarded-Proto $scheme; \n\
+    } \n\
+\n\
+    # SPA fallback for client-side routing\n\
+    location / { \n\
+        try_files $uri $uri/ /index.html; \n\
+    } \n\
+}' > /etc/nginx/conf.d/default.conf
 
-# Node modules se next server binary chahiye toh copy karo (agar lazım ho)
-COPY --from=builder /app/node_modules ./node_modules
+# Expose port 80
+EXPOSE 80
 
-EXPOSE 3000
-
-# Production environment
-ENV NODE_ENV=production
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
-# Runtime pe environment variables default values ke saath
-# Docker/docker-compose se override ho sakte hain
-ENV NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-
-CMD ["bun", "run", "server.js"]
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
