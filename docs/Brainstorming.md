@@ -223,7 +223,88 @@ Date - 19/06/2026
 
 105. mujhe  github context (github.repository,github.event.respository.name) ke baare me samajh aa gaya hai aur mai isko Research.md me point no. 17 me document kiya hun.
 
-106. 
+106. Abhi fir se backend ki ci/cd pipeline break hui hai docker image ko push karte waqt, mujhe pata lagana padega ki kyu break hui ?
+
+107. Mujhe pata chal gaya error ishiliye occur hua kyuki mai packages create karne ki permissions (Write access) nahi diya tha aur mai isko RCA-&-Incident-Journal.md me point no. 9 me document kiya hai
+
+108. Ab backend ka ci/cd pipeline bilkul mast chal raha hai aur ec2 me deploy bhi ho raha hai 
+
+109. ab paari hai frontend ki ab mujhe iski ci/cd pipeline check karna padega taaki pata chale ki ye ec2 me deploy ho raha hai ya fir nahi
+
+110. frontend ka bhi ci/cd pipeline proper work kar raha hai
+
+Date - 20/06/2026
+
+111. frontend aur backend me maine /health endpoint add kiya tha jo bahut acche se system ki health status bata rahi hai
+
+112. Ab mujhe ye jaan na padega ki docker containerized application jiska ci/cd pipeline se docker image build, GHCR(GitHub Image Registry) me push aur ec2 deployment me container run ho raha hai usme mai kaise blue-green deployment implement kar sakta hun.  
+
+113. Mai samajh gaya hun mujhe blue-green deployment implement karne ke liye ek core component ke jaroorat padegi aur uska naam hai Load Balancer.
+
+114. Ab mujhe Load Balancer choose karne ke liye decision making karna padega.
+
+115. Maine Nginx Load Balancer ko choose karne ka decision liya hua hai aur mai isko ARD.md me point no. 6. me document kiya hu.
+
+116. Ab mujhe Nginx ke baare me jaan na padega ki nginx blue-green deployment me behind the scene kaise kaam karta hai.
+
+117. Mujhe sab samajh gaya ki nginx, blue-green deployment me kaam kaise karta hai aur mai usko Research.md me point no. 18 me document kiya hai 
+
+118. Ab mujhe blue-green deployment behind the scene kaise kaam karta hai ye jaan ne liye liye phele mai manual blue-green deployment kar raha hun aur manual rollback karunga aur intentionally green environment application ko down karunga fir blue environment me switch karunga manually
+
+119. Sabse phele mujhe 2 environment banana padega blue aur green
+
+120. Mujhe blue aur green environment ke liye 2 seperate port ready karna padega 
+
+121. Blue environment ports - frontend (3000) aur backend (8000), Green environment ports - fontend (3001) aur backend (8001)
+
+122. Mera blue environment phele se hi ready hai ab kewal green environment create karna hai 
+
+123. Blue environment me frontend aur backend + mysql ka port docker-compose.yaml se define hua tha toh mujhe green environment me frontend aur backend + mysql port koi kaise define karna hai ye jaan na padega.
+
+124. Oh ab mujhe poori picture clear ho gayi hai, jaisa ki maine blue environment me frontend aur bakckend + mysql ke port ko docker-compose.yaml se define ki hai waise hi mujhe green environment ke liye bhi karna padega 
+
+125. ab mujhe application ke folder ke andar me 2 folder create karna hai blue aur green jisme blue wale folder me blue envionment ke hissab se docker-compose.yaml me application ki port define hogi  aur green file me green enviroment ke hissab se docker-compose.yaml me application ki port define hogi
+
+126. Ab mujhe ye jaan na padega ki blue aur green dono environment ke liye shared database use karna chahiye ya fir seperate database use karna chahiye
+
+127. ab mujhe samajh me aa gaya ki production me dono green-blue environment me seperate database use karna recommended hai aur mai isko Research.md me point no. 19. me document kiya hu
+
+128. mai d2c fashion application ke root directory me blue aur green environment ke liye folder create kar liya hai aur docker-compose file bhi aur mai usko implementation.md me point no. 7 me document kiya hai
+
+129. ab mujhe green wale docker-compose.yaml file me applications ke ports change karna hai 
+
+Date - 21/06/2026
+
+130. mai successfully blue green environment me application ko manually run kar liya hun
+
+131. but ek new problem arise ho gayi hai , kyu ek saath application ko 2 alag port me run ho raha hai toh fir memory bahut jyadaza consume ho raha hai almost 95% toh mujhe frontend jo nextjs me hai usko remove karna padega aur reactjs ka use karke frontend banana padega 
+
+132. maine reactjs me d2c fashion app ka frontend develop kar liya hai aur mai usko mai Implementation.md me point no. 8 me document kiya hun
+
+133. frontend app bahut acche se develop ho gaya hai aur poore products ki listing aa rahi hai aur designing bhi acchi ho gayi hai 
+
+134. frontend me error occur ho gaya hai, developement environment me backend server se easily connect ho raha hai but docker build ke baad frontend container ka container run kar raha hun toh wo backend server se connect nahi ho raha hai.
+
+135. error occur hone ka reason find out karne me mujhe 3 hours lag gaye aur reason ye hai ki react ki application production build hone ke baad vite ke inbuild custom server par run nahi hoti ishiliye usko external web server ki jaroorat padti hai jaise nginx
+
+136. ab mujhe ye jaan na padega ki kyu react application production build ke baad vite ke inbuild custom web server me run kyu nahi hoti hai ?
+
+137. ab mujhe samajh aa gaya ki react production build application ko kyu external web server ki need padti hai aur mai isko Research.md me point no. 20 me document kiya hu
+
+Date - 23/06/2026
+
+138. ab aate hai uss error pe jo react app ke production build ke baad external web server jaise nginx ke wajah se occur hui thi kyuki nginx ke server ki routing misconfiguration ke karan hui thi aur isko mai 4-RCA-&-Incident-Journal.md me point no. 10 me mention kiya hua hai
+
+
+
+
+
+
+
+
+ 
+
+
 
 
 
