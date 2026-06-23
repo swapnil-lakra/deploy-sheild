@@ -8,3 +8,7 @@ app/fashion-d2c-app/backend/venv
 app/fashion-d2c-app/backend/.env
 
 app/fashion-d2c-app/.env
+app/fashion-d2c-app/blue/.env
+app/fashion-d2c-app/green/.env
+
+app/fashion-d2c-app/frontend1
