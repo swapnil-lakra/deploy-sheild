@@ -2061,3 +2061,244 @@ env:
 
 * **Use `github.repository**` as your standard choice for resolving full repository paths.
 * **Use `github.event.repository.name**` only when you need an isolated repository name without its owner prefix.
+
+Date - 20/06/2026
+
+# 18. What is Nginx ? And how blue-green deployment works behind the scene using Nginx ?
+
+## **What is Nginx (Engine-X)?**
+
+**Nginx** is a highly popular, fast, and lightweight **Web Server** and **Reverse Proxy**. It is an open-source software that mainly performs the following functions:
+
+1. **Web Server** — Serves static files (HTML, CSS, JS, images).
+2. **Reverse Proxy** — Sits between the clients (users) and your actual application (backend/frontend) to forward requests.
+3. **Load Balancer** — Distributes traffic across multiple servers or containers.
+4. **API Gateway** — Handles routing, security, rate limiting, etc.
+
+**In Simple Words:**
+
+Nginx acts as the **"Front Gate"** or **"Traffic Manager"** of your application. Users make requests to Nginx, and Nginx directs those requests to the correct application or container.
+
+---
+
+## **How Nginx Works Behind the Scenes in Blue-Green Deployment**
+
+In a Blue-Green deployment, **Nginx plays the most critical role** — it acts as the **Traffic Switcher**.
+
+### **How It Works:**
+
+1. **Awareness of Both Environments**
+* Nginx is connected to the containers of both environments (Blue and Green).
+* Example:
+* `frontend-blue:3000`
+* `frontend-green:3000`
+* `backend-blue:8000`
+* `backend-green:8000`
+
+
+
+
+2. **Using the Upstream Block**
+An `upstream` block is defined within the Nginx configuration file:
+```nginx
+upstream frontend {
+    server frontend-blue:3000;      # Currently live
+    # server frontend-green:3000;   # New version (commented out)
+}
+
+upstream backend {
+    server backend-blue:8000;
+}
+
+```
+
+
+3. **Traffic Routing**
+  - All user traffic hits Nginx first (usually on port 80 or 443).
+   - Nginx routes this traffic to the currently active environment (Blue).
+
+4. **Switching Traffic During Deployment**
+  - Once the Green environment is fully ready and passes health checks, the deployment script updates the Nginx configuration file (changing Blue → Green).
+   - The script then executes the command: `sudo nginx -s reload`.
+   - Traffic instantly switches to the Green environment with **zero downtime**.
+
+5. **Rollback**
+  - If a problem arises in the Green environment (e.g., health check failure), the script simply reverts the configuration file back to Blue.
+   - Running `nginx -s reload` immediately redirects the traffic back to the stable Blue environment.
+
+---
+
+## **Visual Flow**
+
+
+```
+
+Users
+↓
+Nginx (Reverse Proxy)
+↓
+├── Blue Environment (Live) ← Default
+└── Green Environment (New) ← Post-Switch
+
+```
+
+---
+
+## **Advantages of Using Nginx in Blue-Green Deployments**
+
+- Extremely **fast switching** (usually takes less than 1 second).
+- Enables **Zero Downtime**.
+- Allows for easy and quick rollbacks.
+- Entire application runs seamlessly under a single domain and a single port.
+- Centralizes SSL/HTTPS management in one place.
+- Enables easy integration of logging, security rules, and rate limiting.
+
+---
+
+**Simple Analogy:**
+
+Think of Nginx as a **Traffic Cop** standing at a junction between two roads (Blue and Green). Normally, he directs all traffic down the Blue road. Once the Green road is completely ready, he seamlessly diverts the traffic toward it. If an issue is detected on the Green road, he instantly redirects the traffic back down the Blue road.
+
+---
+---
+
+# 19. Which is recommended to use in production, shared database or separate database in blue-green environment ?
+
+When implementing a **Blue-Green Deployment** in production, deciding between a **Shared Database** or a **Separate Database** heavily depends on your application’s maturity and risk tolerance.
+
+## **Recommendation: Separate Database is Better for Production**
+
+**Best Practice (2026):** Using **separate databases for both environments (Blue and Green)** is highly recommended.
+
+---
+
+## **Why a Separate Database is Better**
+
+| Factor | Shared Database | Separate Database | Winner |
+| --- | --- | --- | --- |
+| **Safety & Risk** | High Risk | Low Risk | Separate |
+| **Data Corruption** | Possible | Almost Impossible | Separate |
+| **Migration Safety** | Requires extremely careful migrations | Easy migrations (can be thoroughly tested in Green) | Separate |
+| **Rollback** | Complex (data rollback is difficult) | Easy (old environment remains with intact data) | Separate |
+| **Testing Accuracy** | Medium | High (real production-like environment) | Separate |
+| **Complexity** | Simple | Slightly Complex | Shared |
+| **Cost** | Lower | Higher (maintaining two DB instances) | Shared |
+
+---
+
+## **Detailed Explanation**
+
+**Drawbacks of a Shared Database (In Production):**
+
+* Running a database migration during a new code deployment to the Green environment can inadvertently break or affect the active Blue environment.
+* If the Green environment contains a bug that deletes or corrupts data, live users on the Blue environment will face immediate data loss or corruption.
+* Initiating a rollback becomes highly complex due to data consistency issues.
+* Simultaneous writes to the exact same tables by both Blue and Green environments can lead to severe race conditions.
+
+**Advantages of a Separate Database:**
+
+* You can confidently test new features, schema modifications, and database migrations within the isolated Green environment.
+* If the Green environment fails, the active Blue environment remains completely safe and untouched, along with its original data.
+* Rollbacks are clean, safe, and instantaneous.
+* It provides a true, isolated production-like playground for zero-risk testing.
+
+---
+
+## **When Can You Use a Shared Database?**
+
+* The application architecture is very straightforward (basic CRUD operations with no complex schema migrations).
+* The project is in its initial or MVP (Minimum Viable Product) stage.
+* The budget is tightly constrained.
+* The team is small and still building up operational experience.
+
+**However, once an application matures and handles critical real-time user traffic in production, transitioning to a Separate Database is strongly recommended.**
+
+---
+
+### **The Best Hybrid Approach (Most Practical)**
+
+Many enterprise teams adopt the following practical workflows:
+
+1. **Separate Database Instances** (The Ideal Standard).
+2. Alternatively, create **completely separate logical databases** within the same MySQL/PostgreSQL instance to optimize costs:
+* `d2c_fashion_blue`
+* `d2c_fashion_green`
+3. After the Green environment passes all health checks and goes live, the structural differences and safe delta updates are synced or merged appropriately using advanced replication or migration pipelines.
+
+---
+---
+
+Date - 21/06/2026
+
+# 20. Why react production build app needs external web server like nginx ?
+
+**Vite's built-in development server (`npm run dev`) is designed strictly for Development.**
+
+After generating a production build, it cannot be run on **Vite's dev server** because the production build consists purely of **static files**.
+
+---
+
+## Understanding in Detail:
+
+### 1. **`npm run dev` (Development Mode)**
+
+* Vite runs a **high-speed development server**.
+* It supports **Hot Module Replacement (HMR)** → changes in your code reflect instantly in the browser.
+* It compiles **React JSX**, **TypeScript**, **CSS modules**, **import aliases**, etc., in **real-time**.
+* It is a **full-featured dev server** that performs dynamic compilation on the fly.
+
+### 2. **`npm run build` (Production Build)**
+
+When you trigger a build, Vite compiles and bundles your entire codebase into **static assets**:
+
+* Instead of a `.next` folder, Vite generates a **`dist`** folder.
+* This folder contains only pure HTML, CSS, JavaScript (minified), and images.
+* No JSX or dynamic compilation steps remain.
+
+---
+
+## Why Can't We Use the Vite Dev Server in Production?
+
+| Reason | Explanation |
+| --- | --- |
+| **No Development Features** | Production builds do not include features like HMR, fast refresh, or the React Error Overlay. |
+| **Performance** | The dev server is resource-heavy (handling file watching, transpilation, etc.), which is unnecessary in production. |
+| **Security** | A dev server exposes various development features and endpoints that can pose major security risks in production. |
+| **Optimization** | The production build is fully minified, tree-shaken, and chunked — things the dev server doesn't manage for serving. |
+| **Static Hosting** | The production build essentially becomes a **static website** that can be served efficiently by any simple web server (Nginx, Apache, Vercel, Netlify). |
+
+---
+
+## How to Run a React + Vite App in Production?
+
+**The Most Common Methods:**
+
+1. **Nginx** (Most Popular)
+2. **Vercel** / **Netlify** (Easiest)
+3. **Express Server** (If you want to serve it alongside a Node backend)
+4. **PM2 + Serve**
+
+**Simple Example (Local Testing via static server):**
+
+After completing the build, you can preview your static `dist` folder locally using a simple file server:
+
+```bash
+# For local production testing
+npm install -g serve
+serve -s dist -p 3000
+
+```
+
+---
+
+## Summary (In Simple Words)
+
+* **`npm run dev`** → Launches Vite's **Development Server** (fast, smart, and developer-friendly).
+* **`npm run build`** → Generates only **static files** inside the `dist` folder.
+* We do not run Vite's dev server in production because it is **heavy and unoptimized** for a live environment.
+
+For production deployment, we simply host those compiled static files on a **lightweight web server** like Nginx.
+
+---
+---
+
