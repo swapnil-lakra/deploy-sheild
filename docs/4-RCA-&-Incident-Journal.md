@@ -364,3 +364,85 @@ env:
   BACKEND_IMAGE: ${{ github.repository_name }}/fastapi-backend ❌
   BACKEND_IMAGE: ${{ github.event.repository.name }}/fastapi-backend ✅
 ```
+
+---
+---
+
+# 9. CI/CD Pipeline broken during pushing docker image to GHCR (GitHub Container Registry)
+
+## Error
+denied: installation not allowed to Create organization package
+
+## Root Cause
+Error occure hone ka main reason tha ki kyuki organization level par package create karne ki permission (write access) nahi thi
+
+## Error Resolving
+Iss erro ko solve karne ke liye hume package create karne ki permission (write access) dena hoga github action ke ci/cd workflow me
+
+```yaml
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    # Yeh lines add karna zaroori hai
+➕  permissions:
+      contents: read
+      packages: write
+```
+
+---
+---
+
+Date - 23/06/2026
+
+# 10. Nginx server routing misconfiguration
+
+## Root Cause
+Nginx config mein sirf ek catch-all `location /` block tha jo `try_files` karta tha aur fallback `/index.html` bhej deta tha. Isliye jab browser se `/api/...` requests aati thi, nginx unhe khud handle kar leta tha aur `/index.html` return kar deta tha (HTML file). Client ko JSON ki jagah HTML mila, to `productAPI` ne galat data diya aur `ProductList` crash ho gaya. Yahi wajah hai ki bug sirf Docker/nginx production build mein dikha, dev mein nahi — kyunki Vite dev server usually `/api` ko backend pe proxy kar deta hai.
+
+```Dockerfile
+RUN echo $'server { \n\
+    listen 80; \n\
+    root /usr/share/nginx/html; \n\
+    index index.html; \n\
+  📌 location / { \n\
+        try_files $uri $uri/ /index.html; \n\
+    } \n\
+}' > /etc/nginx/conf.d/default.conf
+```
+
+- **Browser ka behaviour**: frontend code jab `fetch('/api/products/...')` call karta hai to request usi origin pe jaati hai jahan se static files aayi thi (yani nginx).
+
+- **Nginx routing**: tumhara `location / { try_files $uri $uri/ /index.html; }` block **sabhi paths** ko match karta hai, including `/api/....` Prefix match hota hai. `try_files` pehle static file dhundhta hai — `/api/products/...` jaisi koi file nahi milti — to fallback `/index.html` return kar deta hai, status 200 OK aur content `text/html`.
+
+- **Result**: Fetch ko HTML mila. Tumhara request code `response.json()` ko call karta hai; ya to wo fail ho gaya (null return) ya unexpected data mila. Isliye `productAPI` ne array nahi diya, `ProductList` ne `products.length` / `products.map` pe runtime error throw kiya.
+
+- **Dev mein kyun chal raha tha**: Vite dev server typically backend ke liye proxy configure karta hai (jaise `vite.config.js` mein `/api` target set hota hai) ya dev backend alag origin pe hota hai. Production mein nginx ko explicitly batana padta hai ki `/api` ko proxy karna hai, nahi to wo static-server ki tarah behave karega.
+
+## Error Resolving
+
+Iss error ko solve karne ke liye mujhe API call ko backend path me proxy karna padega jisse ki jab bhi api call ho toh static files nahi milne pe wo fallback hoke `/index.html` return na kare
+
+```Dockerfile
+RUN echo $'server { \n\
+    listen 80; \n\
+    root /usr/share/nginx/html; \n\
+    index index.html; \n\
+\n\
+    # Proxy API calls to backend container (docker-compose service name) \n\
+    location /api/ { \n\
+        proxy_pass http://backend-blue:8000/; \n\
+        proxy_set_header Host $host; \n\
+        proxy_set_header X-Real-IP $remote_addr; \n\
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \n\
+        proxy_set_header X-Forwarded-Proto $scheme; \n\
+    } \n\
+\n\
+    # SPA fallback for client-side routing\n\
+    location / { \n\
+        try_files $uri $uri/ /index.html; \n\
+    } \n\
+}' > /etc/nginx/conf.d/default.conf
+```
+
+---
+---
