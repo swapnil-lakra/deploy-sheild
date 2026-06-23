@@ -50,13 +50,11 @@ services:
   
   #Next.js Frontend
   frontend-blue:
-    image: ghcr.io/swapnil-lakra/deploy-sheild/nextjs-frontend:latest
+    image: ghcr.io/swapnil-lakra/deploy-sheild/reactjs-frontend:latest
     container_name: d2c-frontend-blue
     restart: unless-stopped
-    environment:
-      NEXT_PUBLIC_API_URL: http://backend-blue:8000
     ports:
-      - "3000:3000"
+      - "3000:80"
     depends_on:
       backend-blue:
         condition: service_started

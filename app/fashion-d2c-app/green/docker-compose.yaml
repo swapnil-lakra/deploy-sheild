@@ -50,13 +50,11 @@ services:
   
   #Next.js Frontend
   frontend-green:
-    image: ghcr.io/swapnil-lakra/deploy-sheild/nextjs-frontend:latest
+    image: ghcr.io/swapnil-lakra/deploy-sheild/reactjs-frontend:latest
     container_name: d2c-frontend-green
     restart: unless-stopped
-    environment:
-      NEXT_PUBLIC_API_URL: http://backend-green:8000
     ports:
-      - "3001:3000"
+      - "3001:80"
     depends_on:
       backend-green:
         condition: service_started
