@@ -1,7 +1,3 @@
-CREATE DATABASE IF NOT EXISTS d2c_fashion;
-USE d2c_fashion;
-
-
 CREATE TABLE products (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(200) NOT NULL,
