@@ -1,0 +1,16 @@
+[Unit]
+Description=D2C Fashion Health Monitor Service
+After=network.target docker.service nginx.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/deploy-sheild/app/fashion-d2c-app/health-monitor
+ExecStart=/usr/local/bin/health-monitor.sh
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/health-monitor.log
+StandardError=append:/var/log/health-monitor.log
+
+[Install]
+WantedBy=multi-user.target
