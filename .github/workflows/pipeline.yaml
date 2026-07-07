@@ -195,9 +195,8 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             declare -A FILES_CONFIG=(
-              ["$HOME/deploy-sheild/app/fashion-d2c-app/docker-compose.blue.yaml"]="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/main/app/fashion-d2c-app/docker-compose.blue.yaml"
-              ["$HOME/deploy-sheild/app/fashion-d2c-app/docker-compose.green.yaml"]="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/main/app/fashion-d2c-app/docker-compose.green.yaml"
-              ["$HOME/deploy-sheild/app/fashion-d2c-app/blue-green-deployment-script/complete-deployment.sh"]="https://raw.githubusercontent.com/swapnil-lakra/blue-green-deployment-script/complete-deployment.sh"
+              ["$HOME/deploy-sheild/app/fashion-d2c-app/docker-compose.yaml"]="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/refs/heads/main/app/fashion-d2c-app/docker-compose.yaml"
+              ["$HOME/deploy-sheild/app/fashion-d2c-app/blue-green-deployment-script/complete-deployment.sh"]="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/refs/heads/main/app/fashion-d2c-app/blue-green-deployment-script/complete-deployment.sh"
             )
             
             echo "Checking if wget is installed or not..."
