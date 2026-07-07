@@ -70,7 +70,7 @@ fi
 
 NGINX_CONF_DIR="$HOME/deploy-sheild/app/fashion-d2c-app/nginx/"
 NGINX_CONF_FILE_PATH="$NGINX_CONF_DIR/nginx.conf"
-NGINX_CONF_DOWNLOAD_URL="https://raw.githubusercontent.com/swapnil-lakra/nginx/nginx.conf"
+NGINX_CONF_DOWNLOAD_URL="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/refs/heads/main/app/fashion-d2c-app/nginx/nginx.conf"
 
 echo "🔍 Checking if Nginx configuration file exists at: $NGINX_CONF_FILE_PATH"
 
@@ -161,8 +161,8 @@ HEALTH_MONITOR_DIR="$HOME/deploy-sheild/app/fashion-d2c-app/health-monitor"
 HEALTH_MONITOR_LOCAL_SH="$TARGET_DIR/health-monitor.sh"
 HEALTH_MONITOR_LOCAL_SERVICE="$TARGET_DIR/health-monitor.service"
 
-HEALTH_MONITOR_URL_SH="https://raw.githubusercontent.com/swapnil-lakra/health-check/health-check.sh"
-HEALTH_MONITOR_URL_SERVICE="https://raw.githubusercontent.com/swapnil-lakra/health-check/health-check.service"
+HEALTH_MONITOR_URL_SH="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/refs/heads/main/app/fashion-d2c-app/health-monitor/health-monitor.sh"
+HEALTH_MONITOR_URL_SERVICE="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/refs/heads/main/app/fashion-d2c-app/health-monitor/health-monitor.service"
 
 echo "=================================================="
 echo "🚀 Starting D2C Fashion Health Monitor Automation"
