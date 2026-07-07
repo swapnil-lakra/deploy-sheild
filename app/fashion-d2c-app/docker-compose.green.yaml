@@ -42,7 +42,7 @@ services:
   # FastAPI Backend
   backend-green:
     env_file: .env
-    image: ghcr.io/swapnil-lakra/deploy-sheild/fastapi-backend:green-latest
+    image: ghcr.io/swapnil-lakra/deploy-sheild/fastapi-backend:latest
     container_name: d2c-backend-green 
     restart: unless-stopped
     environment:
@@ -69,7 +69,7 @@ services:
   
   #Next.js Frontend
   frontend-green:
-    image: ghcr.io/swapnil-lakra/deploy-sheild/reactjs-frontend:green-latest
+    image: ghcr.io/swapnil-lakra/deploy-sheild/reactjs-frontend:latest
     container_name: d2c-frontend-green
     restart: unless-stopped
     environment:
