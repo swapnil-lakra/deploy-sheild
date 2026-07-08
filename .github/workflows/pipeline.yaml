@@ -268,24 +268,34 @@ jobs:
             echo "🎉 All files are correctly checked aur synced!"
 
             DEPLOYMENT_FILE="$HOME/deploy-sheild/app/fashion-d2c-app/blue-green-deployment-script/complete-deployment.sh"
+            LOG_DIR="$HOME/deploy-sheild/logs"
+            TIMESTAMP=$(date +'%Y-%m-%d_%H-%M-%S')
+            LOG_FILE="$LOG_DIR/deployment_$TIMESTAMP.log"
             
             echo "🔍 Checking target script: $DEPLOYMENT_FILE"
 
+            # Checking if file exists or not
             if [ ! -f "$DEPLOYMENT_FILE" ]; then
               echo "❌ Error: Target file '$DEPLOYMENT_FILE' is not found! Please provide right path."
               exit 1
             fi
 
             if [ ! -x "$DEPLOYMENT_FILE" ]; then
-              echo "🔑 Execute permission not found. Granting permission  (chmod +x)..."
-              # 🛠️ Fix: '-x' ko '+x' kiya execution permission grant karne ke liye
+              echo "🔑 Execute permission not found. Granting permission (chmod +x)..."
               chmod +x "$DEPLOYMENT_FILE"
             fi
+
+            # Create log directory if it doesn't exist
+            mkdir -p "$LOG_DIR"
+
+            echo "🚀 Executing blue-green deployment script..."
+            echo "📝 Live logs are being written to: $LOG_FILE"
+            echo "-------------------------------------------------"
 
             echo "🚀 Executing blue-green deployment script now..."
             echo "-------------------------------------------------"
 
-            bash "$DEPLOYMENT_FILE"
+            bash -x "$DEPLOYMENT_FILE" 2>&1 | tee "$LOG_FILE"
 
             echo "-------------------------------------------------"
             echo "🧹 Post-Deployment Storage Cleanup..."
