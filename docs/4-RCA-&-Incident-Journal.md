@@ -446,3 +446,553 @@ RUN echo $'server { \n\
 
 ---
 ---
+
+# 11. Environment variable is not detected
+
+## root cause
+mai blue-green environment ke liye 3 environment fies create kiya hun `.env` jisme saare common variables ke liye,`.env.blue` isme kewal blue environment ke saare variable ke liye,`.env.green` isme kewal green environment ke saare variables ke liye, toh docker compose `.env` file ke variables aur uske values ko easily read kar raha hai but `.env.blue` aur `.env.green` ke variables aur unke values ke saath 
+aisa nahi kar paa raha hai
+
+```Dockerfile
+version: "3.8"
+
+services:
+  #MySQL Database
+  mariadb-blue:
+    env_file: 
+    - .env.blue ❌
+    - .env
+    environment:
+      MARIADB_DATABASE: ❌${MARIADB_BLUE_DATABASE}
+    ports:
+      - "❌ ${MARIADB_BLUE_PORT:-3306}:3306"  
+  
+  # FastAPI Backend
+  backend-blue:
+    env_file: 
+    - .env.blue ❌
+    - .env
+    environment:
+      DATABASE_URL: mysql+aiomysql://${MARIADB_USER}:${MARIADB_USER_PASSWORD}@mariadb-blue:3306/❌${MARIADB_BLUE_DATABASE}?charset=utf8mb4
+      ENVIRONMENT: blue   
+```
+
+```sql
+CREATE DATABASE IF NOT EXISTS `${MARIADB_DATABASE}`; ❌
+USE `${MARIADB_DATABASE}`; ❌
+``` 
+
+maine iss error ko resolve karne ke liye command se .env.blue ke variable diya but wo bhi work nahi kiya ❌
+
+```bash
+docker compose \
+--env-file .env \
+--env-file .env.blue \
+-f docker-compose.blue.yaml up -d
+```
+
+## Error resolution
+Iss errro ko resolve karne ke liye mujhe ek hi `.env` file ko rakhna padega, aur jo environment variables `.env.blue` aur `.env.green` me hai unko in files se hata ke direct docker compose wala file me hi value ko dena hoga
+
+```bash
+# removing .env.blue and .env.green file
+cd aap/fashion-d2c-app/
+rm -r .env.blue .env.green
+```
+
+Docker compose file me ye changes karne padegenge iss error ko resolve karne ke liye
+```dockerfile
+version: "3.8"
+
+services:
+  #MySQL Database
+  mariadb-blue:
+
+  # Env file
+❌  env_file: 
+      - .env.blue 
+      - .env
+
+✅  env_file: .env
+
+  #environment variable 
+❌  environment:
+      MARIADB_DATABASE: ${MARIADB_BLUE_DATABASE}
+
+✅  environment:
+      MARIADB_DATABASE: d2c-fashion-blue
+
+  # ports
+❌  ports:
+      - "${MARIADB_BLUE_PORT:-3306}:3306" 
+
+✅  ports:
+      - "3306:3306" 
+
+  # FastAPI Backend
+  backend-blue:
+
+  # Env file
+❌  env_file: 
+      - .env.blue 
+      - .env
+
+✅  env_file: .env
+
+  # Environment variables
+❌  environment:
+      DATABASE_URL: mysql+aiomysql://${MARIADB_USER}:${MARIADB_USER_PASSWORD}@mariadb-blue:3306/${MARIADB_BLUE_DATABASE}?charset=utf8mb4
+
+✅  environment:
+      DATABASE_URL: mysql+aiomysql://${MARIADB_USER}:${MARIADB_USER_PASSWORD}@mariadb-blue:3306/d2c-fashion-blue?charset=utf8mb4
+```
+
+Aur mariadb database initialization occur ko resolve karne ke ye lines remove karne padenge
+init.sql file se 
+```sql
+--- Remove these 2 lines 
+CREATE DATABASE IF NOT EXISTS `${MARIADB_DATABASE}`; ❌
+USE `${MARIADB_DATABASE}`; ❌
+```
+
+---
+---
+
+Date - 26/06/2026
+
+# 12. Missing semicolon error in Nginx Configuration
+
+## Error
+> nginx: [emerg] directive "return" is not terminated by ";" in /etc/nginx/conf.d/default.conf:8
+
+## Root Cause
+Ye error occur hone ke main reason hai nginx configuration me `return {}` me semicolon missing tha
+
+Aur dikkat ye bhi hai ki mai Nginx ke configuration ko frontend ke Dockerfile se frontend ke image jab build hogi wo ushi build time me hi configure hota tha
+
+```Dockerfile
+RUN echo $'server { \n\
+    listen 80; \n\
+    root /usr/share/nginx/html; \n\
+    index index.html; \n\
+\n\
+    # ================= FRONTEND HEALTH CHECK ================= \n\
+    location /health { \n\
+        default_type application/json; \n\
+        return 200 '{ \n\
+            "status": "healthy", \n\
+            "service": "frontend", \n\
+            "environment": "blue", \n\          
+            "timestamp": "'$(date +%s)'" \n\
+        }'\n\ ❌
+    }\n\
+\n\
+    # Proxy API calls to backend container (docker-compose service name) \n\
+    location /api/ { \n\
+        proxy_pass http://backend-blue:8000/; \n\
+        proxy_set_header Host $host; \n\
+        proxy_set_header X-Real-IP $remote_addr; \n\
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \n\
+        proxy_set_header X-Forwarded-Proto $scheme; \n\
+    } \n\
+\n\
+    # SPA fallback for client-side routing\n\
+    location / { \n\
+        try_files $uri $uri/ /index.html; \n\
+    } \n\
+}' > /etc/nginx/conf.d/default.conf
+```
+
+## Error Resolution
+
+Mai iss Error ko resolve karne ke liye kewal `;` add nahi kiya balki mai nginx ke configuration ko naye folder structure me shift kiya hu aur Dockerfile ko bhi update kiya hun 
+
+```Text
+NEW FOLDER STRUCTURE
+.
+└── deploy-sheild/app/fashion-d2c-app/
+    └── frontend/
+        ├── nginx/
+        │   └── default.conf.template
+        ├── entrypoint.sh
+        └── Dockerfile
+```
+
+Fir jo semicolon missing tha nginx configuration me mai usko `default.conf.template` ke add kiya hun
+
+```default.conf.template
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # React SPA
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Backend API
+    location /api/ {
+        proxy_pass http://${BACKEND_HOST}:${BACKEND_PORT};
+
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Health check
+    location /health {   
+        default_type application/json;
+        return 200 '{"status":"healthy","service":"frontend","environment":"${ENVIRONMENT}"}'; ✅
+    }
+
+}
+```
+
+Fir iss `default.conf.template` file me jo bhi environment variables use hue hai usko unki value se substitute karna aur nginx server ko run karne ka command isme likha hun
+```bash
+#!/bin/sh
+
+set -e
+
+envsubst '${BACKEND_HOST} ${BACKEND_PORT} ${ENVIRONMENT}' \
+< /etc/nginx/templates/default.conf.template \
+> /etc/nginx/conf.d/default.conf
+
+echo "Starting Nginx..."
+
+exec nginx -g "daemon off;"
+```
+
+uske baad mai Frontend Dockerfile ko update kiya kyuki nginx ka folder structure change hua aur entrypoint file bhi add hu thi 
+
+```Dockerfile
+# ------------------------- 
+# Stage 1 - Build React/Vite App 
+# -------------------------
+
+FROM oven/bun:latest AS builder
+
+WORKDIR /app
+
+# Copy dependency files first (better Docker cache)
+COPY package.json bun.lockb* ./
+
+# Install depencencies
+RUN bun install --frozen-lockfile
+
+# Copy application source
+COPY . .
+
+# Build production bundle
+RUN bun run build
+
+# ------------------------- 
+# Stage 2 - Runtime (Nginx) 
+# -------------------------
+
+FROM nginxinc/nginx-unprivileged:alpine-slim
+
+# Copy frontend build
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copy nginx template
+COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+
+COPY entrypoint.sh /entrypoint.sh
+
+RUN chmod +x /entrypoint.sh
+
+# Default values (can be overridden by docker-compose env_file)
+ENV BACKEND_HOST=backend-blue
+ENV BACKEND_PORT=8000
+ENV ENVIRONMENT=blue
+
+EXPOSE 80
+
+ENTRYPOINT [ "/entrypoint.sh" ]
+```
+
+---
+---
+
+# 13. Chmod: Operation not permitted during frontend docker image build
+
+## Error
+
+```log
+ > [stage-1 5/5] RUN chmod +x /entrypoint.sh:
+0.153 chmod: /entrypoint.sh: Operation not permitted
+------
+Dockerfile:37
+--------------------
+  35 |     
+  36 |     # Make entrypoint executable
+  37 | >>> RUN chmod +x /entrypoint.sh
+  38 |     
+  39 |     # Default values (can be overridden by docker-compose env_file)
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c chmod +x /entrypoint.sh" did not complete successfully: exit code: 1
+```
+
+## Root Cause
+Error occur hone ka main reason hai ki mai nginx ka `nginxinc/nginx-unprivileged:alpine-slim` docker image use kar raha hun aur ye `root user se nahi` balki `non-root user (UID 101)` se chalti hai security reasons ki wajah se.
+
+Flow kuch aisa hai:
+```text
+Base Image
+      │
+      ▼
+nginxinc/nginx-unprivileged
+      │
+      ▼
+Current User = nginx (non-root)
+      │
+      ▼
+RUN chmod +x /entrypoint.sh
+      │
+      ▼
+Permission Denied
+```
+
+Non-root user `/entrypoint.sh` ki permissions change nahi kar sakta, isliye:
+> Operation not permitted
+
+## Error Resolution
+Iss error ko resolve karne ke liye mujhe iss `/entrypoint.sh` file ko executable file banane ke liye root user ka use karna padega fir ye task hone ke baad usko default user me shift karna padega jisse security maintain rahegi
+
+```Dockerfile
+FROM nginxinc/nginx-unprivileged:alpine-slim
+
+# executing as root user until entrypoint.sh file becomes executable file
+USER root ⬅️
+
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+
+COPY entrypoint.sh /entrypoint.sh
+
+RUN chmod +x /entrypoint.sh
+
+# changing to default user (non-root user UID 101) for security reasons
+USER 101 ⬅️
+
+ENV BACKEND_HOST=backend-blue
+ENV BACKEND_PORT=8000
+ENV ENVIRONMENT=blue
+
+EXPOSE 80
+
+ENTRYPOINT [ "/entrypoint.sh" ]
+```
+
+---
+---
+
+# 14. Backend container becomes unhealthy while running on blue environment
+
+## Root Cause
+Backend container ka unhealthy hone ka main reason hai healthcheck test fail hona aur wo healthcheck test fail hone ka main reason hai `curl` install na hona container me
+
+```yaml
+healthcheck:
+  test: ["CMD", "curl", "-f", "http://localhost:8000/health"] ❌
+```
+
+## Error Resolution
+Iss error ko resolve karne ke 2 tarike hai:
+1. curl install karna padega 
+2. python ka use karke healthcheck test karna kyuki python already installed hai
+
+Mai 2nd tarika use karunga iss error ko resolve karne ke liye kyuki curl ko install karunga toh frontend ki images size halki si aur badh jaayegi iss accha toh ye hoga ki mai python se hi healthcheck test karlu kyuki wo phele se hi installed hai
+
+```yaml
+# using 'curl' to do healthcheck test, and which is not installed 
+healthcheck:
+  test: ["CMD", "curl", "-f", "http://localhost:8000/health"] ❌
+
+# using 'python' to do healthcheck test, which is already installed
+healthcheck:
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"] ✅️  
+
+```
+
+---
+---
+
+Date - 30/06/2026
+
+# 15. Wrong shebang in scripting file 
+
+## Error
+> exec /entrypoint.sh: no such file or directory
+
+## Root Cause
+Error occur hone ka main reason hai wrong shebang ka use hona, kyuki mai nginx ka docker image me apline linux distribution use kar raha hu 
+
+```bash
+#!/bin/bash ❌
+```
+
+## Errro Resolution
+Error ko resovle karne ke liye mujhe right shebang ha use karna padega kyuki different linux distribution me different shebangs use hote hai toh mujhe apline linux distribution ka shebang use karna padega
+
+```bash
+#!/bin/bash ❌
+
+#!/bin/sh ✅
+```
+
+# 16. `envsubst` not found error because it haven't pre installed
+
+## Error
+> sh: envsubst: not found
+
+> Error: failed to solve: process "/bin/sh -c envsubst ..." did not complete successfully: exit code: 127
+
+## Root Cause
+Error occur hone ka main reason hai ki envsubst ka installed na hona kyuki mai nginx ka docker image use kar raha hu jisme apline linux distribution hota hai aur usme phele se `envsubst` pre installed nahi hota hai 
+
+## Error Resolution
+Ye error ko resolve karne ek liye mujeh Dockerfile ke script me `envsubst` kon installation command add karna padega
+
+```Dockerfile
+RUN apk add --no-cache envsubst
+```
+
+---
+---
+
+# 17. Nginx `server` directive error
+
+## Error
+> 2026/06/25 19:46:37 [emerg] 1#1: "server" directive is not allowed here in /etc/nginx/conf.d/
+
+> default.conf:3 nginx: [emerg] "server" directive is not allowed here in /etc/nginx/conf.d/default.conf:3
+## Root Cause
+Error occur hone ka main reason hai maine invalid nginx configuration ne wrong direction use kiya hua hai `server`, aisa ko directive nahi hota hai nginx me
+
+```default.conf.template
+server {
+    listen 80;
+    server _name _; ❌ 
+```
+## Error Resolution
+Ye error ko resolve karne ke liye invalid nginx directive ka use karna padega - `server_name`
+
+```default.conf.template
+server {
+    listen 80;
+
+    server _name_; ❌ 
+
+    server_name _; ✅
+```
+
+---
+---
+
+# 18. `host not found in upstream` (Nginx Start-up Error)
+
+## Error
+> Starting Nginx... 2026/06/25 20:13:26 [emerg] 1#1: host not found in upstream "backend_blue" in /etc/nginx/conf.d/default.conf:15 nginx: [emerg] host not found in upstream "backend_blue" in /etc/nginx/conf.d/default.conf:15
+
+## Root Cause
+Error occur hone ka main reason hai ye hai ki host name ko galat enter kar diya hu `backend_blue` jo exist hi nahi karta 
+
+```docker-compose.blue.yaml
+frontend-blue:
+    environment:
+      BACKEND_HOST: backend_blue ❌
+```
+
+## Error Resolution 
+Yeh error ko resolve kar ne ke likhe mujhe sahi aur existing host ka name use karna padega
+
+```docker-compose.blue.yaml
+frontend-blue:
+    environment:
+      BACKEND_HOST: backend_blue ❌
+      BACKEND_HOST: backend-blue ✅
+```
+
+---
+---
+
+# 19. Connection Refused Error (`ECONNREFUSED`)
+
+## Error
+> ConnectionRefusedError: [Errno 111] Connection refused
+
+## Root Cause
+Error occur hone ka main reason hai mai mai invalid backend server ka port use raha raha hu 
+
+```docker-compose.green.yaml
+ports:
+ - 8001:8000
+```
+
+```text
+Host Machine        Container
+8001       ----->   8000
+```
+
+container ke andar backend server port `8000` par chal rha hai aur mai host machine ka port use kar rha hu `8001` backend server ka healthcheck test karne ke liye aur saath hi me frontend ke liye backend port bhi 
+
+ye sab ishiliye hua kyuki mujhe host machine vs container port ke bech ka jo difference hota hai usme me confusion tha
+
+```docker-compose.green.yaml
+version: "3.8"
+
+services:
+  # FastAPI Backend
+  backend-green:
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')" ] ❌
+  
+  #Next.js Frontend
+  frontend-green:
+    environment:
+      BACKEND_PORT: 8001 ❌
+    
+```
+
+## Error Resolution
+Yeh error ko resovle karne ke liye mujhe host machine aur container ka port ka dhyan rakhte hue sahi ports ka use karna hai maine host machine ka port ko use kiya hua lekin mujhe container ka port ko use karna hai 
+
+kyuki backend ha healthcheck test host machine me nahi hoga wo container ke andar hoga aur frontend ke backend port, host machine se nginx proxy nahi hoga wo container me run ho ke nginx porxy hoga
+
+```docker-compose.green.yaml
+version: "3.8"
+
+# change the port 8001 -> 8000
+
+services:
+  # FastAPI Backend
+  backend-green:
+    ports:
+      - "8001:8000"
+    healthcheck:
+
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')" ] ❌
+      
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ] ✅
+  
+  #Next.js Frontend
+  frontend-green:
+    environment:
+      BACKEND_PORT: 8001 ❌
+
+      BACKEND_PORT: 8000 ✅
+```
+
+---
+---
