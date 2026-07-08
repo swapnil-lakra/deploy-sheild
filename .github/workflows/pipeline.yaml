@@ -223,7 +223,7 @@ jobs:
             fi
 
             for FILE_PATH in "${!FILES_CONFIG[@]}"; do
-              URL="${FILES_CONFIG[FILE_PATH]}"
+              URL="${FILES_CONFIG["$FILE_PATH"]}"
               FOLDER_PATH=$(dirname "$FILE_PATH")
               FILE_NAME=$(basename "$FILE_PATH")
 
@@ -295,7 +295,7 @@ jobs:
             echo "🚀 Executing blue-green deployment script now..."
             echo "-------------------------------------------------"
 
-            bash -x "$DEPLOYMENT_FILE" 2>&1 | tee "$LOG_FILE"
+            bash "$DEPLOYMENT_FILE" 2>&1 | tee "$LOG_FILE"
 
             echo "-------------------------------------------------"
             echo "🧹 Post-Deployment Storage Cleanup..."
