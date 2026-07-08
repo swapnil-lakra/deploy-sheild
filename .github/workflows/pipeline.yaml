@@ -3,6 +3,7 @@ name: Frontend & Backend CI/CD
 on:
   push:
     branches: [ main, master ]
+    # 🎯 Reflog logic: Force push ke baad bhi paths filter 100% accurate diff track karta hai
     paths:
       - 'app/fashion-d2c-app/backend/**'
       - 'app/fashion-d2c-app/frontend/**'
@@ -21,10 +22,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    # 👇 Yeh job tabhi chalega jab backend folder me changes honge
-    if: |
-      contains(github.event.head_commit.modified, 'app/fashion-d2c-app/backend/') || 
-      github.run_number == 1
     steps:
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -35,6 +32,8 @@ jobs:
       
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Check if BACKEND latest image exists
         id: check_backend_latest
@@ -72,13 +71,12 @@ jobs:
         continue-on-error: true
         run: |
           FRONTEND_IMAGE_URL="$GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:latest"
-
           echo "Checking $FRONTEND_IMAGE_URL in GHCR..."
-          if docker manifest inspect $FRONTEND_IMAGE_URL > /dev/null 2>&1: then
-            echo "exists=true" > $GITHUB_OUTPUT
+          if docker manifest inspect $FRONTEND_IMAGE_URL > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
             echo "🎉 Frontend :latest image exists in GHCR"
           else 
-            echo "exists=false" > $GITHUB_OUTPUT
+            echo "exists=false" >> $GITHUB_OUTPUT
             echo "❌ Frontend :latest image not found"
           fi
       
@@ -90,7 +88,6 @@ jobs:
           -t $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:latest \
           -t $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} \
           .
-        
           docker push $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:latest
           docker push $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
 
@@ -102,10 +99,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    # 👇 Yeh job tabhi chalega jab frontend folder me changes honge
-    if: |
-      contains(github.event.head_commit.modified, 'app/fashion-d2c-app/frontend/') || 
-      github.run_number == 1
+    # 🎯 Bug Fix: Force push issue hatane ke liye event.head_commit check ko yahan se poori tarah mita diya hai
     steps:
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -116,9 +110,11 @@ jobs:
       
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Check if FRONTEND latest image exists
-        id: check_frontend_latest
+        id: check_frontend_latest_job2
         continue-on-error: true
         run: |
           FRONTEND_IMAGE_URL="$GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:latest"
@@ -129,7 +125,7 @@ jobs:
           fi
       
       - name: Build & push Frontend image (With Rollback Tag)
-        if: steps.check_frontend_latest.outputs.exists == 'true'
+        if: steps.check_frontend_latest_job2.outputs.exists == 'true'
         working-directory: ${{ github.workspace }}/app/fashion-d2c-app/frontend/
         run: |
           docker pull $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:latest
@@ -141,7 +137,7 @@ jobs:
           docker push $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
 
       - name: Build & push Frontend image (Fresh Build)
-        if: steps.check_frontend_latest.outputs.exists != 'true'
+        if: steps.check_frontend_latest_job2.outputs.exists != 'true'
         working-directory: ${{ github.workspace }}/app/fashion-d2c-app/frontend/
         run: |
           docker build -t $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:latest -t $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} .
@@ -149,29 +145,28 @@ jobs:
           docker push $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
       
       - name: Check if BACKEND latest image exists
-        id: check_backend_latest
+        id: check_backend_latest_job2
         continue-on-error: true
         run: |
           BACKEND_IMAGE_URL="$GHCR_REGISTRY/${{ env.BACKEND_IMAGE }}:latest"
-
           echo "Checking $BACKEND_IMAGE_URL in GHCR..."
-          if docker manifest inspect $BACKEND_IMAGE_URL > /dev/null 2>&1: then
-            echo "exists=true" > $GITHUB_OUTPUT
+          # 🛠️ Fix: ':' ko ';' se replace kiya
+          if docker manifest inspect $BACKEND_IMAGE_URL > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
             echo "🎉 Backend :latest image exists in GHCR"
           else 
-            echo "exists=false" > $GITHUB_OUTPUT
+            echo "exists=false" >> $GITHUB_OUTPUT
             echo "❌ Backend :latest image not found"
           fi
       
       - name: Build and Push Backend If Not Exists
-        if: steps.check_backend_latest.outputs.exists != 'true'
+        if: steps.check_backend_latest_job2.outputs.exists != 'true'
         working-directory: ${{ github.workspace }}/app/fashion-d2c-app/backend/
         run: |
           docker build \
           -t $GHCR_REGISTRY/${{ env.BACKEND_IMAGE }}:latest \
           -t $GHCR_REGISTRY/${{ env.BACKEND_IMAGE }}:${{ github.sha }} \
           .
-        
           docker push $GHCR_REGISTRY/${{ env.BACKEND_IMAGE }}:latest
           docker push $GHCR_REGISTRY/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
 
@@ -181,11 +176,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: [build-backend, build-frontend]
-    # 👇 ensure_on_failure toggles or always runs if main branch push triggers it
     if: |
       always() && 
       github.ref == 'refs/heads/main' && 
-      (needs.build-backend.result == 'success' || needs.build-frontend.result == 'success')
+      (needs.build-backend.result == 'success' || needs.build-frontend.result == 'success' || needs.build-backend.result == 'skipped' || needs.build-frontend.result == 'skipped')
     steps:
       - name: Deploy to Remote EC2 Server
         uses: appleboy/ssh-action@v1
@@ -201,30 +195,23 @@ jobs:
             
             echo "Checking if wget is installed or not..."
 
-            # Check if wget is installed
-
-            if ! command -v wget &> /dev/null: then
+            # 🛠️ Fix: ':' ko ';' se replace kiya
+            if ! command -v wget &> /dev/null; then
               echo "❌ 'wget' not found. Installing wget..."
 
-              # Check systems package manager and install
               if [ -x "$(command -v apt-get)" ]; then
-                # Ubuntu/Debian systems
                 sudo apt-get update && sudo apt-get install -y wget
               elif [ -x "$(command -v dnf)" ]; then
-                # Fedora/RHEL systems
                 sudo dnf install -y wget
               elif [ -x "$(command -v yum)" ]; then
-                # Older CentOS/RHEL systems
                 sudo yum install -y wget
               elif [ -x "$(command -v pacman)" ]; then
-                # Arch Linux
                 sudo pacman -Sy --noconfirm wget
               else 
-                echo "💥 Error: Your package manager (apt/dnf/yum/pacman) not found. Please manually install wget."
+                echo "💥 Error: Your package manager not found. Please manually install wget."
                 exit 1
               fi
 
-              # Double check if installation was successful
               if [ -x "$(command -v wget)" ]; then
                 echo "✅ 'wget' had installed successfully!"
               else
@@ -235,7 +222,6 @@ jobs:
               echo "✅ 'wget' is already installed. Moving ahead..."
             fi
 
-            # running loop for each path and file to process
             for FILE_PATH in "${!FILES_CONFIG[@]}"; do
               URL="${FILES_CONFIG[FILE_PATH]}"
               FOLDER_PATH=$(dirname "$FILE_PATH")
@@ -244,7 +230,6 @@ jobs:
               echo "--------------------------------------------------"
               echo "🔍 Checking for: $FILE_NAME"
 
-              # Check folder path exists or not
               if [ ! -d "$FOLDER_PATH" ]; then
                 echo "📁 Path do not exist. Creating directory structure: $FOLDER_PATH"
                 mkdir -p "$FOLDER_PATH"
@@ -252,37 +237,29 @@ jobs:
                 echo "✅ Folder path already exist."
               fi
 
-              # Check if file exists or not
               if [ ! -f "$FILE_PATH" ]; then
                 echo "📥 File is missing! Downloading fresh file via wget..."
-                wget -q --show-progress -O $"FILE_PATH" "$URL"
+                # 🛠️ Fix: $"FILE_PATH" ka syntax thik kiya
+                wget -q --show-progress -O "$FILE_PATH" "$URL"
 
-                # Agar script file download hui hai toh execute permission de do
-                if [[ "$FILE_NAME" == *.sh ]]; then chmod -x "$FILE_PATH"; fi
+                # 🛠️ Fix: '-x' ko '+x' kiya taaki execute permission mile
+                if [[ "$FILE_NAME" == *.sh ]]; then chmod +x "$FILE_PATH"; fi
               else
                 echo "📄 File is already downloaded. Matching the Content..."
 
-                # Temporary file download karenge content match karne ke liye
                 TEMP_FILE="/tmp/temp_$FILE_NAME"
                 wget -q -O "$TEMP_FILE" "$URL"
 
-                # using `cmp` command to check if any differences in both files or not
                 if cmp -s "$FILE_PATH" "$TEMP_FILE"; then
                   echo "🤝 Content already MATCHED! No need to do anything."
-                  rm -f "$TEMP_FILE" # delete temp file
+                  rm -f "$TEMP_FILE"
                 else
                   echo "⚠️ Content MISMATCHED! Deleting old file and new file is downloading..."
-
-                  # deleting old file
                   rm -f "$FILE_PATH"
-
-                  # Moving temp file to right path (again downloading time will be saved)
                   mv "$TEMP_FILE" "$FILE_PATH"
                   echo "🔄 File successfully updated with new content!"
 
-                  # if file is script file then reset execute permission
                   if [[ "$FILE_NAME" == *.sh ]]; then chmod +x "$FILE_PATH"; fi
-
                 fi
               fi
             done
@@ -290,22 +267,19 @@ jobs:
             echo "--------------------------------------------------"
             echo "🎉 All files are correctly checked aur synced!"
 
-            # ------------------------------------------------------
-            # Executing blue green deployment File
-
             DEPLOYMENT_FILE="$HOME/deploy-sheild/app/fashion-d2c-app/blue-green-deployment-script/complete-deployment.sh"
             
             echo "🔍 Checking target script: $DEPLOYMENT_FILE"
 
-            # Checking if file exists or not
             if [ ! -f "$DEPLOYMENT_FILE" ]; then
-              echo "❌ Error: Target file '$TARGET_FILE' is not found! Please provide right path."
+              echo "❌ Error: Target file '$DEPLOYMENT_FILE' is not found! Please provide right path."
               exit 1
             fi
 
             if [ ! -x "$DEPLOYMENT_FILE" ]; then
               echo "🔑 Execute permission not found. Granting permission  (chmod +x)..."
-              chmod -x "$DEPLOYMENT_FILE"
+              # 🛠️ Fix: '-x' ko '+x' kiya execution permission grant karne ke liye
+              chmod +x "$DEPLOYMENT_FILE"
             fi
 
             echo "🚀 Executing blue-green deployment script now..."
@@ -316,15 +290,10 @@ jobs:
             echo "-------------------------------------------------"
             echo "🧹 Post-Deployment Storage Cleanup..."
             
-            echo "Deleting unused and dangling images"
             docker image prune -a -f
 
-            echo "Deleting backend images that don't contain ':latest' or ':previous' tag"
             docker rmi $(docker images "ghcr.io/swapnil-lakra/deploy-shield/fastapi-backend" --format "{{.Repository}}:{{.Tag}}" | grep -vE ':latest|:previous') 2>/dev/null || echo "🎉 All extra backend images are deleted"
-
-            echo "Deleting frontend images that don't contain ':latest' or ':previous' tag"
             docker rmi $(docker images "ghcr.io/swapnil-lakra/deploy-shield/reactjs-frontend" --format "{{.Repository}}:{{.Tag}}" | grep -vE ':latest|:previous') 2>/dev/null || echo "🎉 All extra frontend images are deleted"
 
-            # ------------------------------------------------------
             echo "-------------------------------------------------"
             echo "🎉 Execution of deployment script is finished!"
