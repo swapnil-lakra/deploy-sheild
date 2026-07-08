@@ -107,3 +107,33 @@ cd frontend && npm i
 
 bun run dev
 ```
+
+## 9. Running Docker compose blue and green environment 
+
+Blue aur Green environment ke 2 separate docker-compose file hai toh usko run karne ke liye -f flag ka use karna padta hai 
+
+```bash
+cd app/fashion-d2c-app/
+# running blue environment docker compose 
+docker compose -f docker-compose.blue.yaml up -d
+
+# running green environment docker compose
+docker compose -f docker-compose.green.yaml up -d
+```
+
+jab mai blue ya green environment me application ko run kar rha hun toh mujhe error occur ho raha hai aur mai uss error ke baare me 4-RCA-&-Incident-Journal.md me point no. 11, 12, 13, 14 
+
+
+Date - 26/06/2026
+
+## 10. Installing wget for frontend container for healthcheck test
+
+jab mai blue environment me backend container run hua toh unhealthy ho gaya because of healthcheck test fail ke reason se kyu mai `curl` use kar raha tha healthcheck test karne ke liye but wo container ke andar installed hi nahi tha ishiliye healthcheck test fail ho raha tha toh mai socha fir toh mai frontend ke liye bhi `wget` ka use kar raha hu healthcheck test ke liye aur wo bhi fail ho jaayega kyuki wo bhi installed nahi hai toh mujhe usko install karne ka script likhna padega fronend ke `Dockerfile` me
+
+```Dockerfile
+# adding this line to install 'wget' 
+RUN apk add --no-cache wget 
+```
+
+---
+--- 
