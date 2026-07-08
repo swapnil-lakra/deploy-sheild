@@ -2302,3 +2302,106 @@ For production deployment, we simply host those compiled static files on a **lig
 ---
 ---
 
+# 21. What is Upstream in nginx and how to use it in blue-green deployment ?
+
+## **What is Upstream?**
+
+An **`upstream`** block in Nginx is used to define a **group of multiple servers or containers**. It essentially creates a cluster or group that you can easily reference later in your configuration using the `proxy_pass` directive.
+
+**Simple Analogy**:
+
+Think of an upstream block as a "server group directory." If you have two friends (Blue and Green), the upstream block notes down both of their names and addresses in one central place.
+
+---
+
+## **Example**
+
+```nginx
+upstream frontend {
+    server frontend-blue:80;      # Blue environment
+    server frontend-green:80;     # Green environment
+}
+
+upstream backend {
+    server backend-blue:8000;
+    server backend-green:8001;
+}
+
+```
+
+Once defined, you can reference them seamlessly like this:
+
+```nginx
+location / {
+    proxy_pass http://frontend;     # References the upstream name
+}
+
+location /api/ {
+    proxy_pass http://backend;
+}
+
+```
+
+---
+
+## **Why Use Upstream?**
+
+1. **Simplifies Server Management:** Makes it incredibly easy to manage multiple servers or microservices.
+2. **Enables Load Balancing:** Allows you to distribute incoming traffic using various algorithms (e.g., round-robin, least connections, ip_hash).
+3. **Seamless Blue-Green Switching:** Traffic switching becomes exceptionally smooth (often requiring just a quick comment/uncomment or weight adjustment).
+4. **Clean Configuration:** Keeps your Nginx configuration DRY (Don't Repeat Yourself) and highly maintainable.
+
+---
+
+## **Is Upstream Mandatory for Blue-Green Deployment?**
+
+**It is not strictly mandatory**, but it is **highly recommended** as an industry best practice.
+
+### **Approach A: If You Use Upstream (The Best Way)**
+
+* Traffic switching is clean, reliable, and instantaneous.
+* Scaling out or adding additional load-balancing backends in the future is effortless.
+* The overall configuration file remains neat and manageable.
+
+### **Approach B: If You Don't Use Upstream (The Alternative Way)**
+
+You can route traffic directly using a hardcoded `proxy_pass` directive:
+
+```nginx
+location / {
+    proxy_pass http://frontend-blue:80;   # Hardcoded backend target
+}
+
+```
+
+However, this alternative introduces several drawbacks:
+
+* To execute a Blue-Green switch, you have to manually edit the core application block routing every single time.
+* The configuration can become messy and prone to syntax errors during rapid deployments.
+* You completely lose native load-balancing capabilities.
+
+---
+
+## **Best Practice for Blue-Green Deployments**
+
+**Always leverage the upstream block**—it is the enterprise-standard approach.
+
+Here is an example of an ultra-clean, production-grade setup using traffic weights:
+
+```nginx
+upstream frontend {
+    server frontend-blue:80 weight=10;   # Default Live (Blue)
+    server frontend-green:80 weight=0;    # Inactive/Standby (Green)
+}
+
+upstream backend {
+    server backend-blue:8000 weight=10;
+    server backend-green:8001 weight=0;
+}
+
+```
+
+When you are ready to cut over your traffic during a deployment, simply flip the weights accordingly and execute a seamless hot-reload via `nginx -s reload`.
+
+---
+---
