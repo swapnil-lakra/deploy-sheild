@@ -285,7 +285,7 @@ jobs:
             echo "🚀 Executing blue-green deployment script now..."
             echo "-------------------------------------------------"
 
-            source $DEPLOYMENT_FILE
+            bash "$DEPLOYMENT_FILE"
 
             echo "-------------------------------------------------"
             echo "🧹 Post-Deployment Storage Cleanup..."
