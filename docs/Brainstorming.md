@@ -295,6 +295,118 @@ Date - 23/06/2026
 
 138. ab aate hai uss error pe jo react app ke production build ke baad external web server jaise nginx ke wajah se occur hui thi kyuki nginx ke server ki routing misconfiguration ke karan hui thi aur isko mai 4-RCA-&-Incident-Journal.md me point no. 10 me mention kiya hua hai
 
+Date - 24/06/2026
+
+139. mujhe blue green deployment ke liye ci/cd workflow me bash scripting likhna padega aur ci/cd pipeline jo phele bana tha usko blue-green deployment ke hissab se mujhe reconstruct karna padega
+
+Date - 25/06/2026
+
+140. maine frontend aur backend ke ci/cd worflow me build section ko reconstruct kar liya hai ab mujhe un dono ka deployment section ko reconstruct karna padega jo blue-green deployment hoga.
+
+141. ab mujbhe 2 bash file create karna padega, frontend aur backend ke liye aur usme blue-green deployment ke scripting karna padega.
+
+142. lekin usse phele mujhe blue aur green environment ko run karna padega aur dekhna padega, blue aur green environment me application acche se run ho rha hai ya nahi aur mai isko Implementation.md me point no. 9 me document kiya hu
+
+143. ab mai sabse phele blue environment ko run kar rha hun toh error occur ho rha hai aur wo error occur hone ka reason hai environment variable detect nahi ho paana aur mai uss error ke baare me 4-RCA-&-Incident-Journal.md me point no. 11 me document kiya hu
+
+Date - 26/06/2026
+
+144. ab sab sahi se run ho raha hai lekin mariadb me initialization sql file run nahi ho paayi jisse ki database me tables create nahi hua aur usme data bhi add nahi ho paaya ye bhi environment is not detected wala error jisko mai 4-RCA-&-Incident-Journal.md me point no. 11 me document kiya hu
+
+145. ab mujhe frontend me nginx server me error aa raha hai aur uss error aane ka reason hai nginx configuration me simicolon ka missing hona aur mai uss error ko resolve karke mai 4-RCA-&-Incident-Journal.md me point no. 12 me document kiya hu
+
+146. mai frotend image ko build kar raha hun toh mujhe error occur ho raha hai aur uss error occur hone ka main reason hai jab docker file build ho rha hai toh use bash file ko executable banane ke liye root user ke permission na milna aur mai isko resolve karke 4-RCA-&-Incident-Journal.md me point no. 13 me document kiya hu
+
+147. Abhi mai green environment me d2c fashion app ko run kar raha hun toh backend ka container `unhealthy` ho raha hai due to healthchek test fail hua aur mai isko resolve karke 4-RCA-&-Incident-Journal.md me point no. 14 me document kiya hu 
+
+148. green environment ke backend ka healthcheck test ishiliye fail ho raha tha kyuki wo `curl` ka use kar raha tha jo container me installed hi nahi thi aur healtcheck test fail hone ke par bawjood backend bahut smooth chal raha tha toh mai soch raha hu ki waise toh mai frontend ka healthcheck test karne ke liye mai `wget` ka use kiya hun but wo bhi usme installed nahi hogi 
+  
+Date - 30/06/2026
+
+149. frontend ka healthcheck test fail ho raha tha kyuki `wget` tool installed nahi tha toh mai isko install karne ka command add kar diya hu toh jab frontend ka image build hoga toh wo `wget` tool ko install kar dega au mai isko Implementation.md me point no. 10 me document kiya hua hai
+
+150. kyuki mai frontend ke liya `nginxinc/nginx-unprivileged:alpine-slim` image use kar raha hun jisme `apline` linux distribution use hua hai aur wo baaki normal distribution se bahut agal hai jiski wajah se mujhe bahut saare error ko face karna pada hai
+
+151. aur mujhe `nginxinc/nginx-unprivileged:alpine-slim` ko choose karne ka decision making kiya hai kyuki ye nginx image bahut jyada secure hai
+
+152. nginx ke docker image `nginxinc/nginx-unprivileged:alpine-slim` jo error occur hue hai mai usko 4-RCA-&-Incident-Journal.md me point no. 15, 16 me document kiya hu
+
+153. ab mai green environment ne docker compose use kar ke container ko run kar raha hun toh fir se ek error aa gaya hai aur wo error nginx me `invalid directive` ka use kiya hu ishliye occur hua hai aur mai usko 4-RCA-&-Incident-Journal.md me point no. 17 me document kiya hu
+
+154. ab jo error aaya tha usko fix kar ke baad container run kar raha hun toh fir ek aur error aa raha hai aur wo error ishliy aa raha hai kyuki mai backend host ka name invalid hai meri mistake ki wajah se aur bahut hi silly mistake hua hai mere se aur mai isko 4-RCA-&-Incident-Journal.md me point no. 18 me docuement kiya hua hu
+
+155. jab mai silly mistakes wale error ko solve kar liya toh fir se ek aur error occur hua hai aur wo error ishiliye occur hua hai kyuki mujhe host machine aur container ke port me difference clear nahi tha aur mai container port ki jagah host machine ka port no. use kar liya tha aur mai isko 4-RCA-&-Incident-Journal.md me point no. 19 me document kiya hua hu
+
+156. finally several errors ke baad blue aur green environment par d2c-fashion-app successfully run ho rahe hai toh mai ab blue-green deployment ki taraf aage badh sakta hun
+
+Date - 01/07/2026
+
+157. ab mujhe ye jaan na padega ki mai blue aur green environment ke liye application me application ko run toh kar paa raha hu lekin mujhe uske automatic rollback karne se phele mai kaise manually rollback kar sakta hun blue environment me
+
+158. mujhe samajh aa gaya mai ye nginx ke help se kar sakta hun upstream ka use karke lekin ab mujhe ye samajhna padega ki ye upsteam hota kya hai, kyu use hota hai aur kya blue-green deployment me isse use karna jarrori hai?, agar use nahi kiya jaaye toh kya hoga.
+
+159. mujhe samajh me aa gaya nginx me upsteam hota kya hai, kyu use hota hai aur kya blue-green deployment me isse use karna jarrori hai?, agar use nahi kiya jaaye toh kya hoga aur isko mai Research.md me point no. 21 me document kiya hua hun
+
+Date - 02/07/2026
+
+200. Ab mai ci/cd workflow me backend ka docker image build karne jaa raha hun toh mujhe ye pata karna padega ki mai blue aur green ke liye docker image kaise banane ke liye konsa tagging karna sabse best rahega
+
+201. mujhe samajh aagay hai taggin kaise karni hai build ke baad usme `:latest` aur `:${{ github.sha }}` ko add karna jisse kya hoga ki jab fir se naya build hoga toh `:latest` uss naye wale build ke saath attach ho jaayega 
+
+202. ab mujhe backend ke ci/cd workflow me step create karna padega jo check kare ki frontend ka image exists karta hai ya nahi aur agar nahi exist karega toh frontend ka image bhi build hoga aur exist karega toh forntend ka image build nahi hoga
+
+203. frontend exist karta hai ya nahi iske liye steps create kar liya hai ab latest build image ke liye `:latest` tag ko add kar liya aur usse one step peeche  build image ko `:previous` ka taga add kar diya hu
+
+204. aur yehi same mai frontend ke ci/cd pipeline ke worflow me bhi add kar diya hu
+
+205. ab mai baari hai bash scripting kar ke blue-green deployment karne ki 
+
+206. sabse phele mujhe ye check karne ka bash script likhna padega ki `docker-compose.blue.yaml`,`docker-compose.green.yaml` and `complete-deployment.sh` file aur uska folder exist karta hai ya nahi
+
+207. agar wo files exist nahi karte toh wget ka use karke file downlaod ka script add kar diya hu aur exist karte hai toh wget se file download karke check hoga jo already download file agar ko difference najar aayega to new download ko keep karega aur jo already downlaoded file tha wo delete ho jaayega
+
+208. ab mujhe ec2 me docker install hai ya nahi uske liye script likh liya hun jo check karta hai ki docker nahi hai toh install kar deta hai 
+
+209. ab docker ko install hone ke baad ye check karne ka script likha hun jo docker is service start aur enable hai ya nahi aur agar nahi hai toh automatically start aur enable ka command se karne ka script add kar diya hu
+
+210. ab ye check karna hai ki konsa envionment run ho raha hai, blue ya fir green ya wo dono aur iska script likha hu
+
+Date - 03/07/2026
+
+211. mai deployment script me jab koi bhi environment running nahi hai tab blue environment ko start karne aur jab blue environment running hai toh green environment ko start karna likh diya hun
+
+212. ab mai ek major decision le raha hu aur wo ye hai mere pass ci/cd pipeline ke liye 2 file thi ek backend aur ek frontend ke liye aur usme most of the content similar the toh mai usko ek single file me rewrite karunga aur wahi same mai docker compose ke liye bhi karunga ushme bhi 2 files hai ek blue aur green environment ke liye lekin usme most of the content similar hai toh mai usko ek file me rewrite karunga
+
+Date - 05/07/2026
+213. maine success fully jaha 2 ci/cd worflow aur docker compose files ke liye 1 single file me merge kar diya hai jisse 1 chiz 2 baar repeat nahi ho rahi hai
+
+214. ab mujhe nginx.conf me nginx ki configuration karni hai jisse ki blue aur green dono environment ke manage kar sake, agar green fail ho toh blue me rollback ho jaaye 
+
+215. maine nginx.conf me dono environment ke upstream add kar diya hai
+
+216. ab mujhe ye jaana padega ki green environment ha /health ko kaise monitor karna jisse se healthcheck fail ho toh blue me automatically rollback ho jaaye aur fir green ka healcheck dobara pass ho toh wapas green me shift ho jaaye with zero-downtime
+
+217. mujhe samajh me aa gaya, /health koi monitor karne ke liye systemd (daemon process ko background me run hota hai) create karna padega
+
+Date - 06/07/2026
+218. blue and green environment ka health check karne ke liya mai service aur bash script ready kar li hai 
+
+219. maine complete-deployment.sh me nginx ko install karna fir configure karna fir health-monitor.service ko background me run karne aur fir check karna ki konsa environmnent active hai toh uss hissab se new environment ko start karne ka script ko likh diya hun ko
+
+220. jo maine health-monitor.service jo background me chalega aur health-monitor.sh file me agar green environment down hua toh blue me automatically rollback hona aur fir se green environment up hua toh rollforward hona bhi usme likha hun
+
+221. ab complete-deployment.sh,docker-compose.yaml, pipeline.yaml aur health-monitor.server,health-monitor.sh ko execute karke check karna ki wo sahi se work kar raha hai nahi agar nahi kiya to find out karunga kyu run nahi ho raha hai aur mai usko rca journal me document karunga 
+
+Date - 07/07/2026
+
+222. maine jitne bhi file me changes kiye hue the usko github me push kar diya hun 
+
+223. ab mai blue green deployment with ci/cd pipeline ko test karne ke liye ki sahi se kaam kar bhi raha hai ya nahi backend me halka sa changes karke usko github me push karunga 
+
+Date - 08/07/2026
+
+224. 
+
 
 
 
