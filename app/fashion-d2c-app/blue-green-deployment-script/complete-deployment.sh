@@ -43,6 +43,30 @@ else
     fi
 fi
 
+echo "🔍 Checking Nginx service status..."
+
+if systemctl is-active --quiet nginx; then
+    echo "✅ Nginx is running perfectly!"
+    exit 0
+else
+    echo "❌ Nginx is NOT running!"
+    
+    # 🔄 Optional Auto-Restart: Agar aap chahte hain ki script automatic Nginx ko start kare
+    echo "🔄 Attempting to start Nginx service..."
+    sudo systemctl start nginx
+    sudo systemctl enable nginx
+    
+    # Dobara double-check karenge ki start hua ya nahi
+    if systemctl is-active --quiet "$SERVICE"; then
+        echo "🚀 Nginx started successfully now!"
+        exit 0
+    else
+        echo "🚨 Critical Error: Nginx failed to start! Please check configuration or logs."
+        echo "📂 Run this command to debug: sudo journalctl -eu nginx"
+        exit 1
+    fi
+fi
+
 # -----------------------------------------------------------------
 # ⚙️ 3. Configuring Nginx Local and System Files
 # -----------------------------------------------------------------
@@ -54,7 +78,20 @@ echo "🔍 Checking if Nginx configuration file exists at: $NGINX_CONF_FILE_PATH
 
 # 🛠️ Bug Fix: $FILE_PATH ko badal kar $NGINX_CONF_FILE_PATH kiya
 if [ -f "$NGINX_CONF_FILE_PATH" ]; then
-    echo "✅ nginx.conf already exists at the target location. No action needed."
+    echo "✅ nginx.conf already exists at the target location. Matching the Content..."
+
+    TEMP_NGINX_FILE="/tmp/temp_nginx.conf"
+    wget -q -O "$TEMP_NGINX_FILE" "$NGINX_CONF_DOWNLOAD_URL"
+
+    if cmp -s "$NGINX_CONF_FILE_PATH" "$TEMP_NGINX_FILE"; then
+        echo "🤝 Nginx file content already MATCHED! No need to do anything."
+        rm -f "$TEMP_NGINX_FILE"
+    else
+        echo "⚠️ Content MISMATCHED! Deleting old nginx file and new nginx file is downloading..."
+        rm -f "$NGINX_CONF_FILE_PATH"
+        mv "$TEMP_NGINX_FILE" "$NGINX_CONF_FILE_PATH"
+        echo "🔄 Nginx file successfully updated with new content!"
+    fi
 else
     echo "❌ nginx.conf not found. Preparing to download..."
     if [ ! -d "$NGINX_CONF_DIR" ]; then
@@ -69,10 +106,6 @@ NGINX_CONF_SYSTEM_FILE="/etc/nginx/nginx.conf"
 NGINX_CONF_BACKUP_FILE="/etc/nginx/nginx.conf.bak"
 
 echo "🔍 Comparing configuration files..."
-if [ ! -f "$NGINX_CONF_FILE_PATH" ]; then
-    echo "🚨 Error: Downloaded file not found at $NGINX_CONF_FILE_PATH"
-    exit 1
-fi
 
 if [ ! -f "$NGINX_CONF_SYSTEM_FILE" ]; then
     echo "⚠️ System nginx.conf not found. Creating it directly..."
@@ -82,14 +115,18 @@ else
         echo "✅ Content matches perfectly! No changes needed."
     else
         echo "❌ Content mismatch detected! Updating system nginx.conf..."
-        sudo systemctl stop nginx || true
         echo "📂 Creating a backup of the current file at $NGINX_CONF_BACKUP_FILE"
         sudo cp "$NGINX_CONF_SYSTEM_FILE" "$NGINX_CONF_BACKUP_FILE"
         sudo cp "$NGINX_CONF_FILE_PATH" "$NGINX_CONF_SYSTEM_FILE"
         
         echo "⚙️ Validating Nginx configuration syntax..."
-        if sudo nginx -t &> /dev/null; then
+        
+        sudo nginx -t 
+
+        if [ $? -eq 0 ]; then
             echo "🔄 Syntax is OK. Updated /etc/nginx/nginx.conf successfully."
+            echo "🔄 Reloading nginx service to update changes"
+            sudo systemctl reload nginx
         else
             echo "🚨 Critical Error: Syntax errors found! Rolling back to backup..."
             sudo cp "$NGINX_CONF_BACKUP_FILE" "$NGINX_CONF_SYSTEM_FILE"
@@ -98,12 +135,14 @@ else
     fi
 fi
 
-sudo systemctl start nginx || true
-sudo systemctl enable nginx || true
 
 # ----------------------------------------------------------------
 # 🏃‍♂️ 4. Starting and Running Health-Monitor Service
 # ----------------------------------------------------------------
+echo "=================================================="
+echo "🚀 Starting D2C Fashion Health Monitor Automation"
+echo "=================================================="
+
 SERVICE_NAME="health-monitor.service"
 LOCAL_BIN_DIR="/usr/local/bin"
 SYSTEMD_DIR="/etc/systemd/system"
@@ -111,25 +150,41 @@ SYSTEMD_DIR="/etc/systemd/system"
 HEALTH_MONITOR_DIR="$HOME/deploy-sheild/app/fashion-d2c-app/health-monitor"
 # 🛠️ Bug Fix: $TARGET_DIR ko sahi variable $HEALTH_MONITOR_DIR se replace kiya
 HEALTH_MONITOR_LOCAL_SH="$HEALTH_MONITOR_DIR/health-monitor.sh"
-HEALTH_MONITOR_LOCAL_SERVICE="$HEALTH_MONITOR_DIR/health-monitor.service"
+HEALTH_MONITOR_LOCAL_SERVICE="$HEALTH_MONITOR_DIR/$SERVICE_NAME"
 
 HEALTH_MONITOR_URL_SH="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/refs/heads/main/app/fashion-d2c-app/health-monitor/health-monitor.sh"
 HEALTH_MONITOR_URL_SERVICE="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/refs/heads/main/app/fashion-d2c-app/health-monitor/health-monitor.service"
 
-echo "=================================================="
-echo "🚀 Starting D2C Fashion Health Monitor Automation"
-echo "=================================================="
+echo "🔍 Checking if service '${SERVICE_NAME}' exists in the system..."
+if systemctl list-unit-files --type=service | grep -Fq "${SERVICE_NAME}"; then
+    echo "✅ Success: '${SERVICE_NAME}' system me exist karti hai!"
+    
+    echo "🔍 Checking ${SERVICE_NAME} status..."
 
-if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
-    echo "✅ Systemd service file exists at $SYSTEMD_DIR/$SERVICE_NAME"
-    if systemctl is-active --quiet "$SERVICE_NAME"; then
-        echo "🏃‍♂️ Service '$SERVICE_NAME' is already running."
+    # systemctl is-active --quiet flag ke sath check karega ki service RUNNING hai ya nahi
+    if systemctl is-active --quiet "${SERVICE_NAME}"; then
+        echo "✅ Success: '${SERVICE_NAME}' active hai aur smoothly run kar rahi hai!"
+        exit 0
     else
-        echo "⚠️ Service exists but is NOT running. Starting now..."
-        sudo systemctl start "$SERVICE_NAME"
-        sudo systemctl enable "$SERVICE_NAME"
+        echo "❌ Alert: '${SERVICE_NAME}' abhi active/running nahi hai!"
+        
+        # 🔄 Auto-Start Logic: Agar service running nahi hai, toh use start karne ki koshish karein
+        echo "🔄 Attempting to start '${SERVICE_NAME}'..."
+        sudo systemctl enable --now "${SERVICE_NAME}"
+        
+        # 🔬 Double check validation
+        if systemctl is-active --quiet "${SERVICE_NAME}"; then
+            echo "🚀 Great! '${SERVICE_NAME}' as been started successfully!"
+            exit 0
+        else
+            echo "🚨 Critical Error: '${SERVICE_NAME}' start nahi ho pa rahi hai!"
+            echo "📂 Debugging ke liye logs check karein: sudo journalctl -eu ${SERVICE_NAME}"
+            exit 1
+        fi
     fi
+    exit 0
 else
+    echo "❌ Error: '${SERVICE_NAME}' is server par install nahi hai!"
     echo "❌ Systemd service '$SERVICE_NAME' does not exist. Deploying now..."
     if [ ! -d "$HEALTH_MONITOR_DIR" ]; then
         mkdir -p "$HEALTH_MONITOR_DIR"
@@ -150,12 +205,50 @@ else
     sudo cp "$HEALTH_MONITOR_LOCAL_SH" "$LOCAL_BIN_DIR/health-monitor.sh"
     sudo chmod +x "$LOCAL_BIN_DIR/health-monitor.sh"
     sudo cp "$HEALTH_MONITOR_LOCAL_SERVICE" "$SYSTEMD_DIR/$SERVICE_NAME"
-
-    echo "🔄 Reloading systemd daemon and starting the service..."
+    echo "starting"
     sudo systemctl daemon-reload
-    sudo systemctl start "$SERVICE_NAME"
-    sudo systemctl enable "$SERVICE_NAME"
+    sudo systemctl enable --now health-monitor.service
+    exit 0
 fi
+
+if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
+    echo "✅ Systemd service file exists at $SYSTEMD_DIR/$SERVICE_NAME. Matching the Content..."
+    
+    TEMP_HEALTH_MONITOR_SH_FILE="/tmp/temp_health-monitor.sh"
+    TEMP_HEALTH_MONITOR_SERVICE_FILE="/tmp/temp_health-monitor.service"
+
+    wget -q -O "$TEMP_HEALTH_MONITOR_SH_FILE" "$HEALTH_MONITOR_URL_SH"
+    wget -q -O "$TEMP_HEALTH_MONITOR_SERVICE_FILE" "$HEALTH_MONITOR_URL_SERVICE"
+
+    if cmp -s "$HEALTH_MONITOR_LOCAL_SH" "$TEMP_HEALTH_MONITOR_SH_FILE"; then
+      echo "🤝 health-monitor.sh content already MATCHED! No need to do anything."
+      rm -f "$TEMP_HEALTH_MONITOR_SH_FILE"
+    else
+      echo "⚠️ Content MISMATCHED! Deleting old health-monitor.sh file and new health-monitor.sh file is downloading..."
+      rm -f "$HEALTH_MONITOR_LOCAL_SH"
+      mv "$TEMP_HEALTH_MONITOR_SH_FILE" "$HEALTH_MONITOR_LOCAL_SH"
+      if [ ! -x "$HEALTH_MONITOR_LOCAL_SH" ]; then
+            echo "🔑 Execute permission not found. Granting permission (chmod +x)..."
+            chmod +x "$HEALTH_MONITOR_LOCAL_SH"
+      fi
+      sudo systemctl restart health-monitor.service
+      echo "🔄 File successfully updated with new content!"
+    fi
+
+    if cmp -s "$HEALTH_MONITOR_LOCAL_SERVICE" "$TEMP_HEALTH_MONITOR_SERVICE_FILE"; then
+      echo "🤝 health-monitor.sh content already MATCHED! No need to do anything."
+      rm -f "$TEMP_HEALTH_MONITOR_SERVICE_FILE"
+    else
+      echo "⚠️ Content MISMATCHED! Deleting old health-monitor.sh file and new health-monitor.sh file is downloading..."
+      rm -f "$HEALTH_MONITOR_LOCAL_SERVICE"
+      mv "$TEMP_HEALTH_MONITOR_SERVICE_FILE" "$HEALTH_MONITOR_LOCAL_SERVICE"
+
+      sudo systemctl daemon-reload
+      sudo systemctl restart health-monitor.service
+      echo "🔄 File successfully updated with new content!"
+    fi
+fi
+
 
 # ----------------------------------------------------------------- 
 # 🌐 5. Blue-Green Environment Traffic Orchestration
