@@ -14,14 +14,18 @@ env:
   FRONTEND_IMAGE: reactjs-frontend
 
 jobs:
-  # ================================
-  # JOB 1: BACKEND BUILD (Runs only if backend changes)
-  # ================================
+  # ================================================================
+  # 🎯 JOB 1: BACKEND BUILD (Runs ONLY if backend folder has changes)
+  # ================================================================
   build-backend:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    if: |
+      contains(github.event.head_commit.modified, 'app/fashion-d2c-app/backend/') ||
+      contains(github.event.head_commit.added, 'app/fashion-d2c-app/backend') ||
+      github.run_number == 1
     steps:
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -99,7 +103,10 @@ jobs:
     permissions:
       contents: read
       packages: write
-    # 🎯 Bug Fix: Force push issue hatane ke liye event.head_commit check ko yahan se poori tarah mita diya hai
+    if: |
+      contains(github.event.head_commit.modified, 'app/fashion-d2c-app/frontend/') ||
+      contains(github.event.head_commit.added, 'app/fashion-d2c-app/frontend/') ||
+      github.run_number == 1
     steps:
       - name: Login to GHCR
         uses: docker/login-action@v3
