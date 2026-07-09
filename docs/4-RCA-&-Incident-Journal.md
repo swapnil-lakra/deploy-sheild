@@ -996,3 +996,93 @@ services:
 
 ---
 ---
+
+Date - 08/07/2026
+
+# 20. Github Action CI/CD pipeline jobs are skipped
+
+## Root Cause
+Asli dikkat ka root cause **2 main cheezon ka combination** tha:`pipeline.yaml` ka conditional logic aur `git reset --hard` ke baad kiya gaya force push.
+
+### 🕵️‍♂️ Root Cause Analysis (RCA)
+
+#### 1. Pichle Yaml File Ka Strict Check (The Trigger Trigger)
+
+Aapke purane workflow me `build-backend` aur `build-frontend` dono jobs par yeh check laga tha:
+
+```yaml
+if: |
+  contains(github.event.head_commit.modified, 'app/fashion-d2c-app/backend/') || 
+  github.run_number == 1
+
+```
+
+Yeh condition GitHub ko bolti hai: *"Sirf tabhi chalna jab is commit me modified files ki list me yeh exact path mile."*
+
+#### 2. `git reset --hard` aur `git push --force` Ka Fatal Attack (The Breaking Point)
+
+jab `HEAD@{7}` par `git reset --hard HEAD~3` chalaya, aur baad me documentation recover karke naye commits jode, toh aapka local branch GitHub ke remote branch se **poori tarah alag (diverged)** ho gaya.
+
+Jab aapne backend me chota sa change karke `git push --force` kiya (`HEAD@{0}`):
+
+* **Normal Push:** Git dono branches ke beech ki kadi (ancestor graph) ko janta hai, aur GitHub ko pata hota hai ki pichle commit ke mukable is naye commit me **kaun si files modify hui hain**.
+* **Force Push:** Force push karne se GitHub par purana commit graph poori tarah mita diya jata hai aur naya graph force-feed kiya jata hai. Is wajah se GitHub Actions ke webhook event ko **pichle commit ka koi context nahi milta**.
+
+#### 3. Webhook Metadata Ka Khali Hona (`head_commit.modified == []`)
+
+Kyunki force push ne graph tod diya tha, GitHub Actions ko push event milte waqt metadata me `github.event.head_commit.modified` ki array **ekdum khali (empty `[]`)** mili.
+
+Ab GitHub Actions ne aapki condition check ki:
+
+1. Kya `modified` array me `'app/fashion-d2c-app/backend/'` hai? $\rightarrow$ **NO** (kyunki array hi khali thi).
+2. Kya `github.run_number == 1` hai? $\rightarrow$ **NO** (kyunki aap pehle bhi kai baar pipeline run kar chuke the).
+
+**Result:** `False || False = False`. Is wajah se GitHub Actions ne dono build jobs ko **Direct Skip** maar diya. Aur jab builds skip ho gaye, toh unpar dependent `deploy` job bhi automatic skip ho gayi.
+
+---
+
+### 📊 Is Process Ka Flowchart
+Step-by-step kya hua, use is flowchart se samjhiye:
+
+```text
+[Local Machine: git push --force] 
+               │
+               ▼
+[GitHub Remote Repository] (Commit history changes abruptly)
+               │
+               ▼
+[GitHub Actions Webhook Triggered] 
+               │
+               ▼
+[Evaluation of Metadata] ──► github.event.head_commit.modified is EMPTY []
+               │
+               ▼
+[Checking Job Conditions]
+ ├── Condition 1: path in modified? ──► FALSE
+ └── Condition 2: run_number == 1?   ──► FALSE
+               │
+               ▼
+[Final Decision] ──► SKIP ALL JOBS DIRECTLY 🛑
+
+```
+
+---
+
+## Error Resolution
+
+iss problem ko solve karne ke liye iss block of code ko remove kar padega
+
+```yaml
+if: |
+  contains(github.event.head_commit.modified, 'app/fashion-d2c-app/backend/') || 
+  github.run_number == 1
+
+if: |
+  contains(github.event.head_commit.modified, 'app/fashion-d2c-app/frontend/') || 
+  github.run_number == 1
+```
+
+
+
+
+
