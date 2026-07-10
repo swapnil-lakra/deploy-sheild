@@ -22,24 +22,32 @@ jobs:
     permissions:
       contents: read
       packages: write
-    if: |
-      contains(github.event.head_commit.modified, 'app/fashion-d2c-app/backend/') ||
-      contains(github.event.head_commit.added, 'app/fashion-d2c-app/backend') ||
-      github.run_number == 1
+    outputs:
+      backend_changed: ${{ steps.filter.outputs.backend }}
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - name: Check for file changes
+        id: filter
+        uses: dorny/paths-filter@v4
+        with: 
+          filters: |
+            backend:
+              - 'app/fashion-d2c-app/backend/**'
+      
       - name: Login to GHCR
+        if: steps.filter.outputs.backend == 'true' || github.run_number == 1
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
       - name: Check if BACKEND latest image exists
+        if: steps.filter.outputs.backend == 'true' || github.run_number == 1
         id: check_backend_latest
         continue-on-error: true
         run: |
@@ -51,7 +59,7 @@ jobs:
           fi
       
       - name: Build & push Backend image (With Rollback Tag)
-        if: steps.check_backend_latest.outputs.exists == 'true'
+        if: (steps.filter.outputs.backend == 'true' || github.run_number == 1) && steps.check_backend_latest.outputs.exists == 'true'
         working-directory: ${{ github.workspace }}/app/fashion-d2c-app/backend/
         run: |
           docker pull $GHCR_REGISTRY/${{ env.BACKEND_IMAGE }}:latest
@@ -63,7 +71,7 @@ jobs:
           docker push $GHCR_REGISTRY/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
 
       - name: Build & push Backend image (Fresh Build)
-        if: steps.check_backend_latest.outputs.exists != 'true'
+        if: (steps.filter.outputs.backend == 'true' || github.run_number == 1) && steps.check_backend_latest.outputs.exists != 'true'
         working-directory: ${{ github.workspace }}/app/fashion-d2c-app/backend/
         run: |
           docker build -t $GHCR_REGISTRY/${{ env.BACKEND_IMAGE }}:latest -t $GHCR_REGISTRY/${{ env.BACKEND_IMAGE }}:${{ github.sha }} .
@@ -71,6 +79,7 @@ jobs:
           docker push $GHCR_REGISTRY/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
       
       - name: Check if FRONTEND latest image exists
+        if: steps.filter.outputs.backend == 'true' || github.run_number == 1
         id: check_frontend_latest
         continue-on-error: true
         run: |
@@ -85,7 +94,7 @@ jobs:
           fi
       
       - name: Build and Push Frontend If Not Exists
-        if: steps.check_frontend_latest.outputs.exists != 'true'
+        if: (steps.filter.outputs.backend == 'true' || github.run_number == 1) && steps.check_frontend_latest.outputs.exists != 'true'
         working-directory: ${{ github.workspace }}/app/fashion-d2c-app/frontend/
         run: |
           docker build \
@@ -103,24 +112,33 @@ jobs:
     permissions:
       contents: read
       packages: write
-    if: |
-      contains(github.event.head_commit.modified, 'app/fashion-d2c-app/frontend/') ||
-      contains(github.event.head_commit.added, 'app/fashion-d2c-app/frontend/') ||
-      github.run_number == 1
+    outputs:
+      frontend_changed: ${{ steps.filter.outputs.frontend }}
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - name: Check for file changes
+        id: filter
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            frontend:
+              - 'app/fashion-d2c-app/frontend/**'
+
       - name: Login to GHCR
+        if: steps.filter.outputs.frontend == 'true' || github.run_number == 1
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
       - name: Check if FRONTEND latest image exists
+        if: steps.filter.outputs.frontend == 'true' || github.run_number == 1
         id: check_frontend_latest_job2
         continue-on-error: true
         run: |
@@ -132,7 +150,7 @@ jobs:
           fi
       
       - name: Build & push Frontend image (With Rollback Tag)
-        if: steps.check_frontend_latest_job2.outputs.exists == 'true'
+        if: (steps.filter.outputs.frontend == 'true' || github.run_number == 1) && steps.check_frontend_latest_job2.outputs.exists == 'true'
         working-directory: ${{ github.workspace }}/app/fashion-d2c-app/frontend/
         run: |
           docker pull $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:latest
@@ -144,7 +162,7 @@ jobs:
           docker push $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
 
       - name: Build & push Frontend image (Fresh Build)
-        if: steps.check_frontend_latest_job2.outputs.exists != 'true'
+        if: (steps.filter.outputs.frontend == 'true' || github.run_number == 1) && steps.check_frontend_latest_job2.outputs.exists != 'true'
         working-directory: ${{ github.workspace }}/app/fashion-d2c-app/frontend/
         run: |
           docker build -t $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:latest -t $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:${{ github.sha }} .
@@ -152,6 +170,7 @@ jobs:
           docker push $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
       
       - name: Check if BACKEND latest image exists
+        if: steps.filter.outputs.frontend == 'true' and github.run_number == 1
         id: check_backend_latest_job2
         continue-on-error: true
         run: |
@@ -167,7 +186,7 @@ jobs:
           fi
       
       - name: Build and Push Backend If Not Exists
-        if: steps.check_backend_latest_job2.outputs.exists != 'true'
+        if: (steps.filter.outputs.frontend == 'true' && github.run_number == 1) && steps.check_backend_latest_job2.outputs.exists != 'true'
         working-directory: ${{ github.workspace }}/app/fashion-d2c-app/backend/
         run: |
           docker build \
@@ -184,9 +203,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-backend, build-frontend]
     if: |
-      always() && 
       github.ref == 'refs/heads/main' && 
-      (needs.build-backend.result == 'success' || needs.build-frontend.result == 'success' || needs.build-backend.result == 'skipped' || needs.build-frontend.result == 'skipped')
+      (needs.build-backend.result == 'success' || needs.build-frontend.result == 'success') &&
+      needs.build-backend.result != 'failure' &&
+      needs.build-frontend.result != 'failure'
     steps:
       - name: Deploy to Remote EC2 Server
         uses: appleboy/ssh-action@v1
