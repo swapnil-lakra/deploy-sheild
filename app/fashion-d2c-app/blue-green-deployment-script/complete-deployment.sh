@@ -53,8 +53,7 @@ else
     
     # 🔄 Optional Auto-Restart: Agar aap chahte hain ki script automatic Nginx ko start kare
     echo "🔄 Attempting to start Nginx service..."
-    sudo systemctl start nginx
-    sudo systemctl enable nginx
+    sudo systemctl enable --now nginx
     
     # Dobara double-check karenge ki start hua ya nahi
     if systemctl is-active --quiet "$SERVICE"; then
@@ -63,7 +62,7 @@ else
     else
         echo "🚨 Critical Error: Nginx failed to start! Please check configuration or logs."
         echo "📂 Run this command to debug: sudo journalctl -eu nginx"
-        exit 1
+        exit 0
     fi
 fi
 
@@ -125,8 +124,32 @@ else
 
         if [ $? -eq 0 ]; then
             echo "🔄 Syntax is OK. Updated /etc/nginx/nginx.conf successfully."
-            echo "🔄 Reloading nginx service to update changes"
-            sudo systemctl reload nginx
+            
+
+            echo "🔍 Checking Nginx service status..."
+
+            if systemctl is-active --quiet nginx; then
+                echo "✅ Nginx is running perfectly!"
+                echo "🔄 Reloading nginx service to update changes"
+                sudo systemctl reload nginx
+                exit 0
+            else
+                echo "❌ Nginx is NOT running!"
+                
+                # 🔄 Optional Auto-Restart: Agar aap chahte hain ki script automatic Nginx ko start kare
+                echo "🔄 Attempting to start Nginx service..."
+                sudo systemctl enable --now nginx
+                
+                # Dobara double-check karenge ki start hua ya nahi
+                if systemctl is-active --quiet "$SERVICE"; then
+                    echo "🚀 Nginx started successfully now!"
+                    exit 0
+                else
+                    echo "🚨 Critical Error: Nginx failed to start! Please check configuration or logs."
+                    echo "📂 Run this command to debug: sudo journalctl -eu nginx"
+                    exit 1
+                fi
+            fi
         else
             echo "🚨 Critical Error: Syntax errors found! Rolling back to backup..."
             sudo cp "$NGINX_CONF_BACKUP_FILE" "$NGINX_CONF_SYSTEM_FILE"
@@ -179,7 +202,7 @@ if systemctl list-unit-files --type=service | grep -Fq "${SERVICE_NAME}"; then
         else
             echo "🚨 Critical Error: '${SERVICE_NAME}' start nahi ho pa rahi hai!"
             echo "📂 Debugging ke liye logs check karein: sudo journalctl -eu ${SERVICE_NAME}"
-            exit 1
+            exit 0
         fi
     fi
     exit 0
@@ -207,7 +230,7 @@ else
     sudo cp "$HEALTH_MONITOR_LOCAL_SERVICE" "$SYSTEMD_DIR/$SERVICE_NAME"
     echo "starting"
     sudo systemctl daemon-reload
-    sudo systemctl enable --now health-monitor.service
+    sudo systemctl enable --now "${SERVICE_NAME}"
     exit 0
 fi
 
@@ -231,7 +254,33 @@ if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
             echo "🔑 Execute permission not found. Granting permission (chmod +x)..."
             chmod +x "$HEALTH_MONITOR_LOCAL_SH"
       fi
-      sudo systemctl restart health-monitor.service
+
+      echo "🔍 Checking ${SERVICE_NAME} status..."
+
+      # systemctl is-active --quiet flag ke sath check karega ki service RUNNING hai ya nahi
+      if systemctl is-active --quiet "${SERVICE_NAME}"; then
+          echo "✅ Success: '${SERVICE_NAME}' active hai aur smoothly run kar rahi hai!"
+          echo "🔄 Reloading health-monitor to update changes."
+          sudo systemctl restart "${SERVICE_NAME}"
+          exit 0
+      else
+          echo "❌ Alert: '${SERVICE_NAME}' abhi active/running nahi hai!"
+          
+          # 🔄 Auto-Start Logic: Agar service running nahi hai, toh use start karne ki koshish karein
+          echo "🔄 Attempting to start '${SERVICE_NAME}'..."
+          sudo systemctl enable --now "${SERVICE_NAME}"
+          
+          # 🔬 Double check validation
+          if systemctl is-active --quiet "${SERVICE_NAME}"; then
+              echo "🚀 Great! '${SERVICE_NAME}' as been started successfully!"
+              exit 0
+          else
+              echo "🚨 Critical Error: '${SERVICE_NAME}' start nahi ho pa rahi hai!"
+              echo "📂 Debugging ke liye logs check karein: sudo journalctl -eu ${SERVICE_NAME}"
+              exit 1
+          fi
+      fi
+
       echo "🔄 File successfully updated with new content!"
     fi
 
@@ -243,8 +292,34 @@ if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
       rm -f "$HEALTH_MONITOR_LOCAL_SERVICE"
       mv "$TEMP_HEALTH_MONITOR_SERVICE_FILE" "$HEALTH_MONITOR_LOCAL_SERVICE"
 
-      sudo systemctl daemon-reload
-      sudo systemctl restart health-monitor.service
+      echo "🔍 Checking ${SERVICE_NAME} status..."
+
+      # systemctl is-active --quiet flag ke sath check karega ki service RUNNING hai ya nahi
+      if systemctl is-active --quiet "${SERVICE_NAME}"; then
+          echo "✅ Success: '${SERVICE_NAME}' active hai aur smoothly run kar rahi hai!"
+          echo "🔄 Reloading health-monitor to update changes."
+          sudo systemctl daemon-reload
+          sudo systemctl restart "${SERVICE_NAME}"
+          exit 0
+      else
+          echo "❌ Alert: '${SERVICE_NAME}' abhi active/running nahi hai!"
+          
+          # 🔄 Auto-Start Logic: Agar service running nahi hai, toh use start karne ki koshish karein
+          echo "🔄 Attempting to start '${SERVICE_NAME}'..."
+          sudo systemctl daemon-reload
+          sudo systemctl enable --now "${SERVICE_NAME}"
+          
+          # 🔬 Double check validation
+          if systemctl is-active --quiet "${SERVICE_NAME}"; then
+              echo "🚀 Great! '${SERVICE_NAME}' as been started successfully!"
+              exit 0
+          else
+              echo "🚨 Critical Error: '${SERVICE_NAME}' start nahi ho pa rahi hai!"
+              echo "📂 Debugging ke liye logs check karein: sudo journalctl -eu ${SERVICE_NAME}"
+              exit 1
+          fi
+      fi
+      
       echo "🔄 File successfully updated with new content!"
     fi
 fi
