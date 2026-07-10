@@ -170,7 +170,7 @@ jobs:
           docker push $GHCR_REGISTRY/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
       
       - name: Check if BACKEND latest image exists
-        if: steps.filter.outputs.frontend == 'true' and github.run_number == 1
+        if: steps.filter.outputs.frontend == 'true' || github.run_number == 1
         id: check_backend_latest_job2
         continue-on-error: true
         run: |
@@ -186,7 +186,7 @@ jobs:
           fi
       
       - name: Build and Push Backend If Not Exists
-        if: (steps.filter.outputs.frontend == 'true' && github.run_number == 1) && steps.check_backend_latest_job2.outputs.exists != 'true'
+        if: (steps.filter.outputs.frontend == 'true' || github.run_number == 1) && steps.check_backend_latest_job2.outputs.exists != 'true'
         working-directory: ${{ github.workspace }}/app/fashion-d2c-app/backend/
         run: |
           docker build \
