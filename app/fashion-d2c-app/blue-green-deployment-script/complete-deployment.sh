@@ -120,10 +120,8 @@ else
         sudo cp "$NGINX_CONF_FILE_PATH" "$NGINX_CONF_SYSTEM_FILE"
         
         echo "⚙️ Validating Nginx configuration syntax..."
-        
-        sudo "$SERVICE_NAME" -t 
 
-        if [ $? -eq 0 ]; then
+        if sudo nginx -t; then
             echo "🔄 Syntax is OK. Updated /etc/nginx/nginx.conf successfully."
             
 
@@ -138,20 +136,26 @@ else
                 
                 # 🔄 Optional Auto-Restart: Agar aap chahte hain ki script automatic Nginx ko start kare
                 echo "🔄 Attempting to start Nginx service..."
-                sudo systemctl enable --now "$SERVICE_NAME"
+                sudo systemctl enable --now "$SERVICE_NAME" || true
                 
                 # Dobara double-check karenge ki start hua ya nahi
                 if systemctl is-active --quiet "$SERVICE_NAME"; then
                     echo "🚀 Nginx started successfully now!"
                 else
                     echo "🚨 Critical Error: Nginx failed to start! Please check configuration or logs."
-                    echo "📂 Run this command to debug: sudo journalctl -eu nginx"
+                    echo "📂 Run this command to debug: sudo journalctl -eu $SERVICE_NAME"
                     exit 1
                 fi
             fi
         else
             echo "🚨 Critical Error: Syntax errors found! Rolling back to backup..."
-            sudo cp "$NGINX_CONF_BACKUP_FILE" "$NGINX_CONF_SYSTEM_FILE"
+            if [ -f "$NGINX_CONF_BACKUP_FILE" ]; then
+                sudo cp "$NGINX_CONF_BACKUP_FILE" "$NGINX_CONF_SYSTEM_FILE"
+                echo "🔄 Backup file restored successfully. Reloading system to keep old state alive."
+                sudo systemctl reload "$SERVICE_NAME" || sudo systemctl restart "$SERVICE_NAME"
+            else
+                echo "🚨 Backup file not found! Cannot rollback automatically."
+            fi
             exit 1
         fi
     fi
@@ -263,7 +267,7 @@ if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
           
           # 🔄 Auto-Start Logic: Agar service running nahi hai, toh use start karne ki koshish karein
           echo "🔄 Attempting to start '${SERVICE_NAME}'..."
-          sudo systemctl enable --now "${SERVICE_NAME}"
+          sudo systemctl enable --now "${SERVICE_NAME}" || true
           
           # 🔬 Double check validation
           if systemctl is-active --quiet "${SERVICE_NAME}"; then
@@ -300,7 +304,7 @@ if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
           # 🔄 Auto-Start Logic: Agar service running nahi hai, toh use start karne ki koshish karein
           echo "🔄 Attempting to start '${SERVICE_NAME}'..."
           sudo systemctl daemon-reload
-          sudo systemctl enable --now "${SERVICE_NAME}"
+          sudo systemctl enable --now "${SERVICE_NAME}" || true
           
           # 🔬 Double check validation
           if systemctl is-active --quiet "${SERVICE_NAME}"; then
@@ -360,8 +364,26 @@ CHANGE_ENVIRONMENT() {
     local P2_OPPOSITE_OLD_WT="$P2_NEW_WT"
     local P2_OPPOSITE_NEW_WT="$P2_OLD_WT"
 
-    # 🛠️ Bug Fix: Safety check condition updated for accurate grep matching
-    if grep -q "127.0.0.1:${P1_PORT} weight=" "$NGINX_CONF"; then
+    # 🎯 2️⃣ Dynamic Suffix Helper: Agar weight 0 hai toh use 'down;' search/replace karna hai
+    local P1_OLD_SUFF; local P1_NEW_SUFF
+    local P1_OPP_OLD_SUFF; local P1_OPP_NEW_SUFF
+    local P2_OLD_SUFF; local P2_NEW_SUFF
+    local P2_OPP_OLD_SUFF; local P2_OPP_NEW_SUFF
+
+    [ "$P1_OLD_WT" -eq 0 ] && P1_OLD_SUFF="down" || P1_OLD_SUFF="weight=${P1_OLD_WT}"
+    [ "$P1_NEW_WT" -eq 0 ] && P1_NEW_SUFF="down" || P1_NEW_SUFF="weight=${P1_NEW_WT}"
+
+    [ "$P1_OPPOSITE_OLD_WT" -eq 0 ] && P1_OPP_OLD_SUFF="down" || P1_OPP_OLD_SUFF="weight=${P1_OPPOSITE_OLD_WT}"
+    [ "$P1_OPPOSITE_NEW_WT" -eq 0 ] && P1_OPP_NEW_SUFF="down" || P1_OPP_NEW_SUFF="weight=${P1_OPPOSITE_NEW_WT}"
+
+    [ "$P2_OLD_WT" -eq 0 ] && P2_OLD_SUFF="down" || P2_OLD_SUFF="weight=${P2_OLD_WT}"
+    [ "$P2_NEW_WT" -eq 0 ] && P2_NEW_SUFF="down" || P2_NEW_SUFF="weight=${P2_NEW_WT}"
+
+    [ "$P2_OPPOSITE_OLD_WT" -eq 0 ] && P2_OPP_OLD_SUFF="down" || P2_OPP_OLD_SUFF="weight=${P2_OPPOSITE_OLD_WT}"
+    [ "$P2_OPPOSITE_NEW_WT" -eq 0 ] && P2_OPP_NEW_SUFF="down" || P2_OPP_NEW_SUFF="weight=${P2_OPPOSITE_NEW_WT}"
+
+    # 🛠️ Safety check condition updated: Kyunki file me 'weight=' ki jagah 'down' ho sakta hai, hum sirf IP:PORT verify karenge
+    if grep -q "127.0.0.1:${P1_PORT}" "$NGINX_CONF"; then
       local TARGET_ENV="unknown"
       if { [ "$P1_PORT" -eq 3000 ] || [ "$P1_PORT" -eq 8000 ]; } && [ "$P1_NEW_WT" -eq 10 ]; then
           TARGET_ENV="blue"
@@ -369,17 +391,23 @@ CHANGE_ENVIRONMENT() {
           TARGET_ENV="green"
       fi
       
-      # ⚠️ Execution Nginx Write
+      # ⚠️ Execution Nginx Write using dynamic suffixes
       sudo sed -i \
-        -e "s/127.0.0.1:${P1_PORT} weight=${P1_OLD_WT};/127.0.0.1:${P1_PORT} weight=${P1_NEW_WT};/g" \
-        -e "s/127.0.0.1:${P1_OPPOSITE_PORT} weight=${P1_OPPOSITE_OLD_WT};/127.0.0.1:${P1_OPPOSITE_PORT} weight=${P1_OPPOSITE_NEW_WT};/g" \
-        -e "s/127.0.0.1:${P2_PORT} weight=${P2_OLD_WT};/127.0.0.1:${P2_PORT} weight=${P2_NEW_WT};/g" \
-        -e "s/127.0.0.1:${P2_OPPOSITE_PORT} weight=${P2_OPPOSITE_OLD_WT};/127.0.0.1:${P2_OPPOSITE_PORT} weight=${P2_OPPOSITE_NEW_WT};/g" \
+        -e "s/127.0.0.1:${P1_PORT} ${P1_OLD_SUFF};/127.0.0.1:${P1_PORT} ${P1_NEW_SUFF};/g" \
+        -e "s/127.0.0.1:${P1_OPPOSITE_PORT} ${P1_OPP_OLD_SUFF};/127.0.0.1:${P1_OPPOSITE_PORT} ${P1_OPP_NEW_SUFF};/g" \
+        -e "s/127.0.0.1:${P2_PORT} ${P2_OLD_SUFF};/127.0.0.1:${P2_PORT} ${P2_NEW_SUFF};/g" \
+        -e "s/127.0.0.1:${P2_OPPOSITE_PORT} ${P2_OPP_OLD_SUFF};/127.0.0.1:${P2_OPPOSITE_PORT} ${P2_OPP_NEW_SUFF};/g" \
         -e "s/\"active_environment\": \"[^\"]*\"/\"active_environment\": \"${TARGET_ENV}\"/g" \
         "$NGINX_CONF"
   
-      sudo nginx -t && sudo nginx -s reload
-      echo "🚀 Shifted traffic to ${TARGET_ENV^^} successfully!"
+      # Syntax verification aur systemd reload (safest production method)
+      if sudo nginx -t; then
+          sudo systemctl reload nginx
+          echo "🚀 Shifted traffic to ${TARGET_ENV^^} successfully!"
+      else
+          echo "🚨 Critical: Nginx syntax test failed after modification! Rolling back not triggered automatically."
+          return 1
+      fi
     else
       echo "⚠️ Safety Check Failed. No changes made to Nginx."
       return 1
