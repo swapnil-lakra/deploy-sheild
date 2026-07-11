@@ -26,26 +26,30 @@ fi
 # -----------------------------------------------------------------
 # 🔍 2. Check & Install Nginx
 # -----------------------------------------------------------------
-if command -v nginx &> /dev/null; then
+SERVICE_NAME="nginx"
+
+if command -v "$SERVICE_NAME" &> /dev/null; then
     echo "✅ Nginx is already installed! Version:"
     nginx -v
 else
     echo "❌ Nginx not found. Installing it now..."
     if [ -f /etc/debian_version ]; then
         echo "📦 Debian/Ubuntu system detected..."
-        sudo apt update && sudo apt install -y nginx
+        sudo apt update && sudo apt install -y "$SERVICE_NAME"
     elif [ -f /etc/fedora-release ] || [ -f /etc/redhat-release ]; then
         echo "📦 Fedora/CentOS/RHEL system detected..."
-        sudo dnf install -y nginx
+        sudo dnf install -y "$SERVICE_NAME"
     else
         echo "⚠️ Sorry, your Linux distribution is not automatically supported."
         exit 1
     fi
 fi
 
+
+
 echo "🔍 Checking Nginx service status..."
 
-if systemctl is-active --quiet nginx; then
+if systemctl is-active --quiet "$SERVICE_NAME"; then
     echo "✅ Nginx is running perfectly!"
     exit 0
 else
@@ -53,10 +57,10 @@ else
     
     # 🔄 Optional Auto-Restart: Agar aap chahte hain ki script automatic Nginx ko start kare
     echo "🔄 Attempting to start Nginx service..."
-    sudo systemctl enable --now nginx
+    sudo systemctl enable --now "$SERVICE_NAME" || true
     
     # Dobara double-check karenge ki start hua ya nahi
-    if systemctl is-active --quiet "$SERVICE"; then
+    if systemctl is-active --quiet "$SERVICE_NAME"; then
         echo "🚀 Nginx started successfully now!"
         exit 0
     else
@@ -120,7 +124,7 @@ else
         
         echo "⚙️ Validating Nginx configuration syntax..."
         
-        sudo nginx -t 
+        sudo "$SERVICE_NAME" -t 
 
         if [ $? -eq 0 ]; then
             echo "🔄 Syntax is OK. Updated /etc/nginx/nginx.conf successfully."
@@ -128,20 +132,20 @@ else
 
             echo "🔍 Checking Nginx service status..."
 
-            if systemctl is-active --quiet nginx; then
+            if systemctl is-active --quiet "$SERVICE_NAME"; then
                 echo "✅ Nginx is running perfectly!"
                 echo "🔄 Reloading nginx service to update changes"
-                sudo systemctl reload nginx
+                sudo systemctl reload "$SERVICE_NAME"
                 exit 0
             else
                 echo "❌ Nginx is NOT running!"
                 
                 # 🔄 Optional Auto-Restart: Agar aap chahte hain ki script automatic Nginx ko start kare
                 echo "🔄 Attempting to start Nginx service..."
-                sudo systemctl enable --now nginx
+                sudo systemctl enable --now "$SERVICE_NAME"
                 
                 # Dobara double-check karenge ki start hua ya nahi
-                if systemctl is-active --quiet "$SERVICE"; then
+                if systemctl is-active --quiet "$SERVICE_NAME"; then
                     echo "🚀 Nginx started successfully now!"
                     exit 0
                 else
@@ -166,7 +170,7 @@ echo "=================================================="
 echo "🚀 Starting D2C Fashion Health Monitor Automation"
 echo "=================================================="
 
-SERVICE_NAME="health-monitor.service"
+SERVICE_NAME="health-monitor"
 LOCAL_BIN_DIR="/usr/local/bin"
 SYSTEMD_DIR="/etc/systemd/system"
 
@@ -179,13 +183,13 @@ HEALTH_MONITOR_URL_SH="https://raw.githubusercontent.com/swapnil-lakra/deploy-sh
 HEALTH_MONITOR_URL_SERVICE="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/refs/heads/main/app/fashion-d2c-app/health-monitor/health-monitor.service"
 
 echo "🔍 Checking if service '${SERVICE_NAME}' exists in the system..."
-if systemctl list-unit-files --type=service | grep -Fq "${SERVICE_NAME}"; then
+if systemctl list-unit-files --type=service | grep -Fq "${SERVICE_NAME}.service"; then
     echo "✅ Success: '${SERVICE_NAME}' system me exist karti hai!"
     
     echo "🔍 Checking ${SERVICE_NAME} status..."
 
     # systemctl is-active --quiet flag ke sath check karega ki service RUNNING hai ya nahi
-    if systemctl is-active --quiet "${SERVICE_NAME}"; then
+    if systemctl is-active --quiet "${SERVICE_NAME}.service"; then
         echo "✅ Success: '${SERVICE_NAME}' active hai aur smoothly run kar rahi hai!"
         exit 0
     else
@@ -193,10 +197,10 @@ if systemctl list-unit-files --type=service | grep -Fq "${SERVICE_NAME}"; then
         
         # 🔄 Auto-Start Logic: Agar service running nahi hai, toh use start karne ki koshish karein
         echo "🔄 Attempting to start '${SERVICE_NAME}'..."
-        sudo systemctl enable --now "${SERVICE_NAME}"
+        sudo systemctl enable --now "${SERVICE_NAME}.service" || true
         
         # 🔬 Double check validation
-        if systemctl is-active --quiet "${SERVICE_NAME}"; then
+        if systemctl is-active --quiet "${SERVICE_NAME}.service"; then
             echo "🚀 Great! '${SERVICE_NAME}' as been started successfully!"
             exit 0
         else
@@ -204,11 +208,14 @@ if systemctl list-unit-files --type=service | grep -Fq "${SERVICE_NAME}"; then
             echo "📂 Debugging ke liye logs check karein: sudo journalctl -eu ${SERVICE_NAME}"
             exit 0
         fi
+        exit 0
     fi
     exit 0
 else
+    
     echo "❌ Error: '${SERVICE_NAME}' is server par install nahi hai!"
     echo "❌ Systemd service '$SERVICE_NAME' does not exist. Deploying now..."
+    
     if [ ! -d "$HEALTH_MONITOR_DIR" ]; then
         mkdir -p "$HEALTH_MONITOR_DIR"
     fi
@@ -230,7 +237,7 @@ else
     sudo cp "$HEALTH_MONITOR_LOCAL_SERVICE" "$SYSTEMD_DIR/$SERVICE_NAME"
     echo "starting"
     sudo systemctl daemon-reload
-    sudo systemctl enable --now "${SERVICE_NAME}"
+    sudo systemctl enable --now "${SERVICE_NAME}.service"
     exit 0
 fi
 
@@ -258,10 +265,10 @@ if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
       echo "🔍 Checking ${SERVICE_NAME} status..."
 
       # systemctl is-active --quiet flag ke sath check karega ki service RUNNING hai ya nahi
-      if systemctl is-active --quiet "${SERVICE_NAME}"; then
+      if systemctl is-active --quiet "${SERVICE_NAME}.service"; then
           echo "✅ Success: '${SERVICE_NAME}' active hai aur smoothly run kar rahi hai!"
           echo "🔄 Reloading health-monitor to update changes."
-          sudo systemctl restart "${SERVICE_NAME}"
+          sudo systemctl restart "${SERVICE_NAME}.service"
           exit 0
       else
           echo "❌ Alert: '${SERVICE_NAME}' abhi active/running nahi hai!"
