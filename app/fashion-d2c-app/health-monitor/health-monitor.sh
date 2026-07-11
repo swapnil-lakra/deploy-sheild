@@ -9,14 +9,14 @@ while true; do
        curl -s -f --max-time 5 http://localhost:8001/health > /dev/null; then
         
         # 🟢 SWITCH TO GREEN: 
-        if grep -q "127.0.0.1:3001 weight=0;" "$NGINX_CONF" && grep -q "127.0.0.1:8001 weight=0;" "$NGINX_CONF"; then
+        if grep -q "127.0.0.1:3001 down;" "$NGINX_CONF" && grep -q "127.0.0.1:8001 down;" "$NGINX_CONF"; then
             echo "🟢 Green is healthy! Switching traffic from Blue to Green..."
             
             sudo sed -i \
-              -e 's/127.0.0.1:3000 weight=10;/127.0.0.1:3000 weight=0;/g' \
-              -e 's/127.0.0.1:3001 weight=0;/127.0.0.1:3001 weight=10;/g' \
-              -e 's/127.0.0.1:8000 weight=10;/127.0.0.1:8000 weight=0;/g' \
-              -e 's/127.0.0.1:8001 weight=0;/127.0.0.1:8001 weight=10;/g' \
+              -e 's/127.0.0.1:3000 weight=10;/127.0.0.1:3000 down;/g' \
+              -e 's/127.0.0.1:3001 down;/127.0.0.1:3001 weight=10;/g' \
+              -e 's/127.0.0.1:8000 weight=10;/127.0.0.1:8000 down;/g' \
+              -e 's/127.0.0.1:8001 down;/127.0.0.1:8001 weight=10;/g' \
               -e 's/"active_environment": "blue"/"active_environment": "green"/g' \
               "$NGINX_CONF"
             
@@ -25,14 +25,14 @@ while true; do
         fi
     else
         # 🔵 ROLLBACK TO BLUE:
-        if grep -q "127.0.0.1:3000 weight=0;" "$NGINX_CONF" && grep -q "127.0.0.1:8000 weight=0;" "$NGINX_CONF"; then
+        if grep -q "127.0.0.1:3000 down;" "$NGINX_CONF" && grep -q "127.0.0.1:8000 down;" "$NGINX_CONF"; then
             echo "🚨 ALERT: Green environment health check failed! Rolling back to Blue..."
             
             sudo sed -i \
-              -e 's/127.0.0.1:3000 weight=0;/127.0.0.1:3000 weight=10;/g' \
-              -e 's/127.0.0.1:3001 weight=10;/127.0.0.1:3001 weight=0;/g' \
-              -e 's/127.0.0.1:8000 weight=0;/127.0.0.1:8000 weight=10;/g' \
-              -e 's/127.0.0.1:8001 weight=10;/127.0.0.1:8001 weight=0;/g' \
+              -e 's/127.0.0.1:3000 down;/127.0.0.1:3000 weight=10;/g' \
+              -e 's/127.0.0.1:3001 weight=10;/127.0.0.1:3001 down;/g' \
+              -e 's/127.0.0.1:8000 down;/127.0.0.1:8000 weight=10;/g' \
+              -e 's/127.0.0.1:8001 weight=10;/127.0.0.1:8001 down;/g' \
               -e 's/"active_environment": "green"/"active_environment": "blue"/g' \
               "$NGINX_CONF"
             
