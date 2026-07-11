@@ -51,7 +51,6 @@ echo "🔍 Checking Nginx service status..."
 
 if systemctl is-active --quiet "$SERVICE_NAME"; then
     echo "✅ Nginx is running perfectly!"
-    exit 0
 else
     echo "❌ Nginx is NOT running!"
     
@@ -62,11 +61,9 @@ else
     # Dobara double-check karenge ki start hua ya nahi
     if systemctl is-active --quiet "$SERVICE_NAME"; then
         echo "🚀 Nginx started successfully now!"
-        exit 0
     else
         echo "🚨 Critical Error: Nginx failed to start! Please check configuration or logs."
         echo "📂 Run this command to debug: sudo journalctl -eu nginx"
-        exit 0
     fi
 fi
 
@@ -136,7 +133,6 @@ else
                 echo "✅ Nginx is running perfectly!"
                 echo "🔄 Reloading nginx service to update changes"
                 sudo systemctl reload "$SERVICE_NAME"
-                exit 0
             else
                 echo "❌ Nginx is NOT running!"
                 
@@ -147,7 +143,6 @@ else
                 # Dobara double-check karenge ki start hua ya nahi
                 if systemctl is-active --quiet "$SERVICE_NAME"; then
                     echo "🚀 Nginx started successfully now!"
-                    exit 0
                 else
                     echo "🚨 Critical Error: Nginx failed to start! Please check configuration or logs."
                     echo "📂 Run this command to debug: sudo journalctl -eu nginx"
@@ -191,7 +186,6 @@ if systemctl list-unit-files --type=service | grep -Fq "${SERVICE_NAME}.service"
     # systemctl is-active --quiet flag ke sath check karega ki service RUNNING hai ya nahi
     if systemctl is-active --quiet "${SERVICE_NAME}.service"; then
         echo "✅ Success: '${SERVICE_NAME}' active hai aur smoothly run kar rahi hai!"
-        exit 0
     else
         echo "❌ Alert: '${SERVICE_NAME}' abhi active/running nahi hai!"
         
@@ -202,15 +196,11 @@ if systemctl list-unit-files --type=service | grep -Fq "${SERVICE_NAME}.service"
         # 🔬 Double check validation
         if systemctl is-active --quiet "${SERVICE_NAME}.service"; then
             echo "🚀 Great! '${SERVICE_NAME}' as been started successfully!"
-            exit 0
         else
             echo "🚨 Critical Error: '${SERVICE_NAME}' start nahi ho pa rahi hai!"
             echo "📂 Debugging ke liye logs check karein: sudo journalctl -eu ${SERVICE_NAME}"
-            exit 0
         fi
-        exit 0
     fi
-    exit 0
 else
     
     echo "❌ Error: '${SERVICE_NAME}' is server par install nahi hai!"
@@ -238,7 +228,6 @@ else
     echo "starting"
     sudo systemctl daemon-reload
     sudo systemctl enable --now "${SERVICE_NAME}.service"
-    exit 0
 fi
 
 if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
@@ -269,7 +258,6 @@ if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
           echo "✅ Success: '${SERVICE_NAME}' active hai aur smoothly run kar rahi hai!"
           echo "🔄 Reloading health-monitor to update changes."
           sudo systemctl restart "${SERVICE_NAME}.service"
-          exit 0
       else
           echo "❌ Alert: '${SERVICE_NAME}' abhi active/running nahi hai!"
           
@@ -280,7 +268,6 @@ if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
           # 🔬 Double check validation
           if systemctl is-active --quiet "${SERVICE_NAME}"; then
               echo "🚀 Great! '${SERVICE_NAME}' as been started successfully!"
-              exit 0
           else
               echo "🚨 Critical Error: '${SERVICE_NAME}' start nahi ho pa rahi hai!"
               echo "📂 Debugging ke liye logs check karein: sudo journalctl -eu ${SERVICE_NAME}"
@@ -307,7 +294,6 @@ if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
           echo "🔄 Reloading health-monitor to update changes."
           sudo systemctl daemon-reload
           sudo systemctl restart "${SERVICE_NAME}"
-          exit 0
       else
           echo "❌ Alert: '${SERVICE_NAME}' abhi active/running nahi hai!"
           
@@ -319,7 +305,6 @@ if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
           # 🔬 Double check validation
           if systemctl is-active --quiet "${SERVICE_NAME}"; then
               echo "🚀 Great! '${SERVICE_NAME}' as been started successfully!"
-              exit 0
           else
               echo "🚨 Critical Error: '${SERVICE_NAME}' start nahi ho pa rahi hai!"
               echo "📂 Debugging ke liye logs check karein: sudo journalctl -eu ${SERVICE_NAME}"
