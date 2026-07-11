@@ -324,14 +324,13 @@ fi
 # ----------------------------------------------------------------- 
 # 🌐 5. Blue-Green Environment Traffic Orchestration
 # ----------------------------------------------------------------- 
-echo "🔍 Checking Current Environment..."
 
 BLUE_RUNNING=false
 GREEN_RUNNING=false
 
-BLUE_DOCKER_COMPOSE_FILE_PATH="$HOME/deploy-sheild/app/fashion-d2c-app/docker-compose.blue.yaml"
-GREEN_DOCKER_COMPOSE_FILE_PATH="$HOME/deploy-sheild/app/fashion-d2c-app/docker-compose.green.yaml"
+DOCKER_COMPOSE_FILE_PATH="$HOME/deploy-sheild/app/fashion-d2c-app/docker-compose.yaml"
 BLUE_ENVIRONMENT_FILE_PATH="$HOME/deploy-sheild/app/fashion-d2c-app/.env.blue"
+GREEN_ENVIRONMENT_FILE_PATH="$HOME/deploy-sheild/app/fashion-d2c-app/.env.green"
 NGINX_CONF="/etc/nginx/nginx.conf"
 
 CHANGE_TAG(){
@@ -414,49 +413,83 @@ CHANGE_ENVIRONMENT() {
     fi
 }
 
-# Check Blue Environment
-if [ -f "$BLUE_DOCKER_COMPOSE_FILE_PATH" ] && docker compose -f $BLUE_DOCKER_COMPOSE_FILE_PATH ps --services --filter "status=running" | grep -q "frontend-blue\|backend-blue"; then
-  BLUE_RUNNING=true
+RUN_DOCKER_COMPOSE_FILE(){
+    local ENVIRONMENT_FILE_PATH="$1"
+    local FILE_NAME=$(basename "$ENVIRONMENT_FILE_PATH")
+    local ENVIRONMENT_NAME=""
+
+    if [[ "$FILE_NAME" == *".blue"* ]]; then
+        ENVIRONMENT_NAME="d2c-blue"
+    elif [[ "$FILE_NAME" == *".green"* ]]; then
+        ENVIRONMENT_NAME="d2c-green"
+    else
+        echo "🚨 Unknown env file path: $ENVIRONMENT_FILE_PATH"
+        return 1
+    fi
+    
+    echo "🚚 Pulling latest images for project: $ENVIRONMENT_NAME..."
+    docker compose --env-file "$ENVIRONMENT_FILE_PATH" -f "$DOCKER_COMPOSE_FILE_PATH" -p "$ENVIRONMENT_NAME" pull
+
+    echo "🚀 Deploying and recreating containers for: $ENVIRONMENT_NAME..."
+    docker compose --env-file "$ENVIRONMENT_FILE_PATH" -f "$DOCKER_COMPOSE_FILE_PATH" -p "$ENVIRONMENT_NAME" up -d --force-recreate
+
+    if [ $? -eq 0 ]; then
+        echo "✅ Successfully deployed $ENVIRONMENT_NAME cluster!"
+    else
+        echo "❌ Failed to start containers for $ENVIRONMENT_NAME"
+        return 1
+    fi
+}
+
+echo "🔍 Checking Docker environment states..."
+
+# ==========================================
+# 🔹 1. BLUE ENVIRONMENT CHECK
+# ==========================================
+# Docker se check karenge ki kya 'd2c-blue' project ka koi container running hai
+if [ $(docker ps --filter "label=com.docker.compose.project=d2c-blue" --filter "status=running" -q | wc -l) -gt 0 ]; then
+    BLUE_RUNNING=true
+else
+    BLUE_RUNNING=false
 fi
 
-# Check Green Environment - 🛠️ Bug Fix: 'dokcer' -> 'docker' aur '--service' -> '--services' kiya
-if [ -f "$GREEN_DOCKER_COMPOSE_FILE_PATH" ] && docker compose -f $GREEN_DOCKER_COMPOSE_FILE_PATH ps --services --filter "status=running" | grep -q "frontend-green\|backend-green"; then
-  GREEN_RUNNING=true
+# Docker se check karenge ki kya 'd2c-green' project ka koi container running hai
+if [ $(docker ps --filter "label=com.docker.compose.project=d2c-green" --filter "status=running" -q | wc -l) -gt 0 ]; then
+    GREEN_RUNNING=true
+else
+    GREEN_RUNNING=false
 fi
+
+
 
 # Execution Matrix Logic
 if [ "$BLUE_RUNNING" = true ] && [ "$GREEN_RUNNING" = true ]; then
   echo "🟡 Both Blue and Green environments are running!"
   CHANGE_TAG "latest" "previous"
-  docker compose -f docker-compose.yaml -p d2c-blue pull
-  docker compose -f docker-compose.yaml -p d2c-blue up -d --force-recreate
+  RUN_DOCKER_COMPOSE_FILE "$BLUE_ENVIRONMENT_FILE_PATH"
   CHANGE_ENVIRONMENT "3000" "0" "10" "8000" "0" "10"
   sleep 5
-  docker compose -f docker-compose.yaml -p d2c-green pull
-  docker compose -f docker-compose.yaml -p d2c-green up -d --force-recreate
+  RUN_DOCKER_COMPOSE_FILE "$GREEN_ENVIRONMENT_FILE_PATH"
   CHANGE_ENVIRONMENT "3001" "0" "10" "8001" "0" "10"
 
 elif [ "$BLUE_RUNNING" = true ]; then
   echo "🔵 Blue Environment is currently ACTIVE"
   echo "🟢 Green Environment is starting..."
   CHANGE_TAG "latest" "previous"
-  docker compose -f docker-compose.yaml -p d2c-green pull
-  docker compose -f docker-compose.yaml -p d2c-green up -d --force-recreate
+  RUN_DOCKER_COMPOSE_FILE "$GREEN_ENVIRONMENT_FILE_PATH"
   CHANGE_ENVIRONMENT "3001" "0" "10" "8001" "0" "10"
 
 elif [ "$GREEN_RUNNING" = true ]; then
   echo "🟢 Green Environment is currently ACTIVE"
   echo "🔵 Blue Environment is starting..."
   CHANGE_TAG "latest" "previous"
-  docker compose -f docker-compose.yaml -p d2c-blue pull
-  docker compose -f docker-compose.yaml -p d2c-blue up -d --force-recreate
+  RUN_DOCKER_COMPOSE_FILE "$BLUE_ENVIRONMENT_FILE_PATH"
   CHANGE_ENVIRONMENT "3000" "0" "10" "8000" "0" "10"
 
 else
   echo "⚪ No environment is running. Booting Blue as Default..."
   CHANGE_TAG "previous" "latest"
-  docker compose -f docker-compose.yaml -p d2c-blue pull
-  docker compose -f docker-compose.yaml -p d2c-blue up -d --force-recreate
+  RUN_DOCKER_COMPOSE_FILE "$BLUE_ENVIRONMENT_FILE_PATH"
   CHANGE_ENVIRONMENT "3000" "0" "10" "8000" "0" "10" 
 fi
 
