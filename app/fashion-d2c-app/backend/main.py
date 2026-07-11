@@ -5,7 +5,6 @@ from routers import products
 from database import engine, Base
 import asyncio
 from datetime import datetime
-
 from dotenv import load_dotenv
 
 load_dotenv()
