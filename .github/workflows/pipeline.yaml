@@ -223,7 +223,6 @@ jobs:
             
             echo "Checking if wget is installed or not..."
 
-            # 🛠️ Fix: ':' ko ';' se replace kiya
             if ! command -v wget &> /dev/null; then
               echo "❌ 'wget' not found. Installing wget..."
 
@@ -263,6 +262,25 @@ jobs:
                 mkdir -p "$FOLDER_PATH"
               else
                 echo "✅ Folder path already exist."
+
+                TARGET_DIR="$HOME/deploy-sheild/app/fashion-d2c-app/mariadb-init"
+
+                if [ "$FOLDER_PATH" = "$TARGET_DIR" ]; then
+                  echo "🔍 Target directory matched: mariadb-init"
+                  
+                  CURRENT_OWNER=$(stat -c '%U' "$FOLDER_PATH" 2>/dev/null)
+                  CURRENT_GROUP=$(stat -c '%G' "$FOLDER_PATH" 2>/dev/null)
+
+                  echo "📊 Current Ownership -> Owner: $CURRENT_OWNER, Group: $CURRENT_GROUP"
+
+                  if [ "$CURRENT_OWNER" != "ubuntu" ] || [ "$CURRENT_GROUP" != "ubuntu" ]; then
+                    echo "⚠️ Ownership mismatch or locked by Docker! Fixing permissions..."
+                    sudo chown -R ubuntu:ubuntu "$TARGET_DIR"
+                    echo "🔒 Ownership successfully restored to ubuntu:ubuntu!"
+                  else
+                    echo "🤝 Permissions are already correct (ubuntu:ubuntu). No action needed."
+                  fi
+                fi
               fi
 
               if [ ! -f "$FILE_PATH" ]; then
