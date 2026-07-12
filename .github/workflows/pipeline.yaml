@@ -218,6 +218,7 @@ jobs:
             declare -A FILES_CONFIG=(
               ["$HOME/deploy-sheild/app/fashion-d2c-app/docker-compose.yaml"]="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/refs/heads/main/app/fashion-d2c-app/docker-compose.yaml"
               ["$HOME/deploy-sheild/app/fashion-d2c-app/blue-green-deployment-script/complete-deployment.sh"]="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/refs/heads/main/app/fashion-d2c-app/blue-green-deployment-script/complete-deployment.sh"
+              ["$HOME/deploy-sheild/app/fashion-d2c-app/mariadb-init/init.sql"]="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/refs/heads/main/app/fashion-d2c-app/mariadb-init/init.sql"
             )
             
             echo "Checking if wget is installed or not..."
