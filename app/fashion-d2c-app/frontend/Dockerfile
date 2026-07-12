@@ -39,7 +39,7 @@ COPY --chmod=755 entrypoint.sh /entrypoint.sh
 USER 101
 
 # Default values (can be overridden by docker-compose env_file)
-ENV BACKEND_HOST=backend-blue
+ENV BACKEND_HOST=backend
 ENV BACKEND_PORT=8000
 ENV ENVIRONMENT=blue
 
