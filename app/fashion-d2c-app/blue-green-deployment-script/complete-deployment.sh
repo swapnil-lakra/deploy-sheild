@@ -175,8 +175,8 @@ SYSTEMD_DIR="/etc/systemd/system"
 
 HEALTH_MONITOR_DIR="$HOME/deploy-sheild/app/fashion-d2c-app/health-monitor"
 # 🛠️ Bug Fix: $TARGET_DIR ko sahi variable $HEALTH_MONITOR_DIR se replace kiya
-HEALTH_MONITOR_LOCAL_SH="$HEALTH_MONITOR_DIR/health-monitor.sh"
-HEALTH_MONITOR_LOCAL_SERVICE="$HEALTH_MONITOR_DIR/$SERVICE_NAME"
+HEALTH_MONITOR_LOCAL_SH="$HEALTH_MONITOR_DIR/${SERVICE_NAME}.sh"
+HEALTH_MONITOR_LOCAL_SERVICE="$HEALTH_MONITOR_DIR/${SERVICE_NAME}.service"
 
 HEALTH_MONITOR_URL_SH="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/refs/heads/main/app/fashion-d2c-app/health-monitor/health-monitor.sh"
 HEALTH_MONITOR_URL_SERVICE="https://raw.githubusercontent.com/swapnil-lakra/deploy-sheild/refs/heads/main/app/fashion-d2c-app/health-monitor/health-monitor.service"
@@ -226,15 +226,15 @@ else
     fi
 
     echo "⚙️ Deploying files to system paths..."
-    sudo cp "$HEALTH_MONITOR_LOCAL_SH" "$LOCAL_BIN_DIR/health-monitor.sh"
-    sudo chmod +x "$LOCAL_BIN_DIR/health-monitor.sh"
-    sudo cp "$HEALTH_MONITOR_LOCAL_SERVICE" "$SYSTEMD_DIR/$SERVICE_NAME"
+    sudo cp "$HEALTH_MONITOR_LOCAL_SH" "$LOCAL_BIN_DIR/${SERVICE_NAME}.sh"
+    sudo chmod +x "$LOCAL_BIN_DIR/${SERVICE_NAME}.sh"
+    sudo cp "$HEALTH_MONITOR_LOCAL_SERVICE" "$SYSTEMD_DIR/${SERVICE_NAME}.service"
     echo "starting"
     sudo systemctl daemon-reload
     sudo systemctl enable --now "${SERVICE_NAME}.service"
 fi
 
-if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
+if [[ -f "${SYSTEMD_DIR}/${SERVICE_NAME}.service" ]] && [[ -f "${LOCAL_BIN_DIR}/${SERVICE_NAME}.sh" ]]; then
     echo "✅ Systemd service file exists at $SYSTEMD_DIR/$SERVICE_NAME. Matching the Content..."
     
     TEMP_HEALTH_MONITOR_SH_FILE="/tmp/temp_health-monitor.sh"
@@ -244,15 +244,23 @@ if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
     wget -q -O "$TEMP_HEALTH_MONITOR_SERVICE_FILE" "$HEALTH_MONITOR_URL_SERVICE"
 
     if cmp -s "$HEALTH_MONITOR_LOCAL_SH" "$TEMP_HEALTH_MONITOR_SH_FILE"; then
-      echo "🤝 health-monitor.sh content already MATCHED! No need to do anything."
-      rm -f "$TEMP_HEALTH_MONITOR_SH_FILE"
+        echo "🤝 ${HEALTH_MONITOR_LOCAL_SH} content already MATCHED! No need to do anything."
+        rm -f "$TEMP_HEALTH_MONITOR_SH_FILE"
     else
-      echo "⚠️ Content MISMATCHED! Deleting old health-monitor.sh file and new health-monitor.sh file is downloading..."
-      rm -f "$HEALTH_MONITOR_LOCAL_SH"
-      mv "$TEMP_HEALTH_MONITOR_SH_FILE" "$HEALTH_MONITOR_LOCAL_SH"
-      if [ ! -x "$HEALTH_MONITOR_LOCAL_SH" ]; then
+        echo "⚠️ Content MISMATCHED! Deleting old ${HEALTH_MONITOR_LOCAL_SH} file and new health-monitor.sh file is downloading..."
+        rm -f "$HEALTH_MONITOR_LOCAL_SH"
+        mv "$TEMP_HEALTH_MONITOR_SH_FILE" "$HEALTH_MONITOR_LOCAL_SH"
+    fi
+
+    if cmp -s "${LOCAL_BIN_DIR}/${SERVICE_NAME}.sh" "$HEALTH_MONITOR_LOCAL_SH"; then
+      echo "🤝 ${LOCAL_BIN_DIR}/${SERVICE_NAME}.sh content already MATCHED! No need to do anything."
+    else
+      echo "⚠️ Content MISMATCHED! Deleting old ${LOCAL_BIN_DIR}/${SERVICE_NAME}.sh file and new health-monitor.sh file is downloading..."
+      sudo rm -f "${LOCAL_BIN_DIR}/${SERVICE_NAME}.sh"
+      sudo cp "$HEALTH_MONITOR_LOCAL_SH" "${LOCAL_BIN_DIR}/${SERVICE_NAME}.sh"
+      if [ ! -x "${LOCAL_BIN_DIR}/${SERVICE_NAME}.sh" ]; then
             echo "🔑 Execute permission not found. Granting permission (chmod +x)..."
-            chmod +x "$HEALTH_MONITOR_LOCAL_SH"
+            sudo chmod +x "${LOCAL_BIN_DIR}/${SERVICE_NAME}.sh"
       fi
 
       echo "🔍 Checking ${SERVICE_NAME} status..."
@@ -267,7 +275,7 @@ if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
           
           # 🔄 Auto-Start Logic: Agar service running nahi hai, toh use start karne ki koshish karein
           echo "🔄 Attempting to start '${SERVICE_NAME}'..."
-          sudo systemctl enable --now "${SERVICE_NAME}" || true
+          sudo systemctl enable --now "${SERVICE_NAME}.service" || true
           
           # 🔬 Double check validation
           if systemctl is-active --quiet "${SERVICE_NAME}"; then
@@ -283,12 +291,19 @@ if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
     fi
 
     if cmp -s "$HEALTH_MONITOR_LOCAL_SERVICE" "$TEMP_HEALTH_MONITOR_SERVICE_FILE"; then
-      echo "🤝 health-monitor.sh content already MATCHED! No need to do anything."
-      rm -f "$TEMP_HEALTH_MONITOR_SERVICE_FILE"
+        echo "🤝 ${HEALTH_MONITOR_LOCAL_SERVICE} content already MATCHED! No need to do anything."
+        rm -f "$TEMP_HEALTH_MONITOR_SERVICE_FILE"
     else
-      echo "⚠️ Content MISMATCHED! Deleting old health-monitor.sh file and new health-monitor.sh file is downloading..."
-      rm -f "$HEALTH_MONITOR_LOCAL_SERVICE"
-      mv "$TEMP_HEALTH_MONITOR_SERVICE_FILE" "$HEALTH_MONITOR_LOCAL_SERVICE"
+        rm -f "$HEALTH_MONITOR_LOCAL_SERVICE"
+        mv "$TEMP_HEALTH_MONITOR_SERVICE_FILE" "$HEALTH_MONITOR_LOCAL_SERVICE"
+    fi
+
+    if cmp -s "${SYSTEMD_DIR}/${SERVICE_NAME}.service" "$HEALTH_MONITOR_LOCAL_SERVICE"; then
+      echo "🤝 ${SYSTEMD_DIR}/${SERVICE_NAME}.service already MATCHED! No need to do anything."
+    else
+      echo "⚠️ Content MISMATCHED! Deleting old {SYSTEMD_DIR}/${SERVICE_NAME}.service file and new health-monitor.service file is downloading..."
+      sudo rm -f "${SYSTEMD_DIR}/${SERVICE_NAME}.service"
+      sudo cp "$HEALTH_MONITOR_LOCAL_SERVICE" "${SYSTEMD_DIR}/${SERVICE_NAME}.service"
 
       echo "🔍 Checking ${SERVICE_NAME} status..."
 
@@ -318,6 +333,11 @@ if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
       
       echo "🔄 File successfully updated with new content!"
     fi
+else
+    echo "🚫 📄 No files Found."
+    echo "❌ - ${SYSTEM_DIR}/${SERVICE_NAME}.service"
+    echo "❌ - ${LOCAL_BIN_DIR}/${SERVICE_NAME}.sh"
+    exit 1
 fi
 
 
