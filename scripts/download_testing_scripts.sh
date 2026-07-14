@@ -37,10 +37,18 @@ else
   echo "✅ 'wget' is already installed. Moving ahead..."
 fi
 
-
 for URL in "${URLS[@]}"; do
     FILE_NAME=$(basename "$URL")
     FILE_PATH="$HOME/deploy-sheild/scripts/$FILE_NAME"
+    FOLDER_PATH=$(dirname "$FILE_PATH")
+
+    if [ ! -d "$FOLDER_PATH" ]; then
+      echo "📁 Path do not exist. Creating directory structure: $FOLDER_PATH"
+      mkdir -p "$FOLDER_PATH"
+    else
+      echo "✅ Folder path already exist."
+    fi
+
 
     if [ ! -f "$FILE_PATH" ]; then
       echo "📥 File is missing! Downloading fresh file via wget..."
